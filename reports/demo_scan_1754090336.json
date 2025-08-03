@@ -1,0 +1,42 @@
+{
+  "scan_type": "network_discovery",
+  "timestamp": "2025-08-02 01:18:56",
+  "targets": [
+    "192.168.1.1",
+    "192.168.1.100",
+    "192.168.1.254"
+  ],
+  "results": [
+    {
+      "ip": "192.168.1.1",
+      "status": "up",
+      "ports": [
+        22,
+        80,
+        443
+      ],
+      "os": "Linux"
+    },
+    {
+      "ip": "192.168.1.100",
+      "status": "down",
+      "ports": [],
+      "os": "Windows"
+    },
+    {
+      "ip": "192.168.1.254",
+      "status": "up",
+      "ports": [
+        22,
+        80,
+        443
+      ],
+      "os": "Unknown"
+    }
+  ],
+  "summary": {
+    "total_hosts": 3,
+    "hosts_up": 2,
+    "total_ports": 6
+  }
+}

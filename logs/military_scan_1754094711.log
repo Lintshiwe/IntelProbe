@@ -1,0 +1,18 @@
+2025-08-02 02:31:51,122 [INFO] IntelProbe-Military: Tool nmap: Not found
+2025-08-02 02:31:51,124 [INFO] IntelProbe-Military: Tool ping: Available
+2025-08-02 02:31:51,124 [INFO] IntelProbe-Military: Tool netstat: Available
+2025-08-02 02:31:51,124 [INFO] IntelProbe-Military: Tool arp: Available
+2025-08-02 02:32:03,452 [INFO] IntelProbe-Military: Open port 25: SMTP
+2025-08-02 02:32:03,467 [INFO] IntelProbe-Military: Open port 110: POP3
+2025-08-02 02:32:03,471 [INFO] IntelProbe-Military: Open port 135: RPC
+2025-08-02 02:32:03,479 [INFO] IntelProbe-Military: Open port 139: NetBIOS
+2025-08-02 02:32:03,484 [INFO] IntelProbe-Military: Open port 143: IMAP
+2025-08-02 02:32:03,487 [INFO] IntelProbe-Military: Open port 993: IMAPS
+2025-08-02 02:32:03,491 [INFO] IntelProbe-Military: Open port 995: POP3S
+2025-08-02 02:32:03,702 [INFO] IntelProbe-Military: Open port 8080: HTTP-Alt (Oracle XML DB/Oracle Database)
+2025-08-02 02:32:03,785 [INFO] IntelProbe-Military: OS Detection: Windows
+2025-08-02 02:32:03,788 [WARNING] IntelProbe-Military: Vulnerability on port 25: SMTP - MEDIUM
+2025-08-02 02:32:03,789 [WARNING] IntelProbe-Military: Vulnerability on port 135: RPC - HIGH
+2025-08-02 02:32:03,790 [WARNING] IntelProbe-Military: Vulnerability on port 139: NetBIOS - MEDIUM
+2025-08-02 02:32:03,791 [INFO] IntelProbe-Military: Network discovery skipped in demo mode
+2025-08-02 02:32:03,794 [INFO] IntelProbe-Military: Military assessment completed successfully

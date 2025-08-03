@@ -1,0 +1,3 @@
+2025-08-02 01:36:04,826 - core.interface - WARNING - __init__:40 - Enhanced scanner not available: No module named 'netifaces'
+2025-08-02 01:36:04,827 - core.interface - INFO - __init__:44 - Using production scanner
+2025-08-02 01:36:04,830 - core.interface - WARNING - __init__:54 - AI engine not available

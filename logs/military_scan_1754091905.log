@@ -1,0 +1,9 @@
+2025-08-02 01:45:05,182 [INFO] core.production_scanner: Starting network scan: 127.0.0.1
+2025-08-02 01:45:05,183 [INFO] core.production_scanner: Phase 1: Host Discovery
+2025-08-02 01:45:10,313 [INFO] core.production_scanner: Host alive: 127.0.0.1 (5.129s)
+2025-08-02 01:45:10,314 [INFO] core.production_scanner: Found 1 alive hosts
+2025-08-02 01:45:10,314 [INFO] core.production_scanner: Phase 2: Port Scanning
+2025-08-02 01:45:12,341 [INFO] core.production_scanner: Open port: 127.0.0.1:8080 (http-proxy) - 
+2025-08-02 01:45:12,362 [INFO] core.production_scanner: Open port: 127.0.0.1:135 (unknown) - 
+2025-08-02 01:45:12,586 [INFO] core.production_scanner: Scan completed. Found 1 hosts with open ports
+2025-08-02 01:45:12,597 [INFO] core.production_scanner: Phase 3: Vulnerability Assessment

@@ -1,0 +1,64 @@
+{
+  "timestamp": 1754154734.960563,
+  "scan_results": [
+    {
+      "ip": "192.168.1.108",
+      "hostname": "MSI",
+      "status": "up",
+      "os": "Windows",
+      "open_ports": [
+        25,
+        993,
+        995
+      ],
+      "timestamp": 1754154733.785263
+    }
+  ],
+  "osint_data": {
+    "local_intelligence": {
+      "ip_address": "192.168.1.108",
+      "hostname": "MSI",
+      "platform": "Windows",
+      "platform_version": "11",
+      "architecture": "AMD64",
+      "processor": "Intel64 Family 6 Model 154 Stepping 4, GenuineIntel"
+    },
+    "network_config": "Retrieved",
+    "dns_test": "Successful"
+  },
+  "detection_results": [
+    {
+      "type": "network_monitoring",
+      "tcp_connections": 1486,
+      "udp_connections": 227,
+      "status": "normal"
+    },
+    {
+      "type": "arp_monitoring",
+      "entries": 4,
+      "status": "normal"
+    }
+  ],
+  "ai_analysis": {
+    "system_profile": {
+      "os": "Windows",
+      "architecture": "AMD64",
+      "python_version": "3.13.0",
+      "uptime_assessment": "Active"
+    },
+    "security_assessment": {
+      "firewall_detection": "Active",
+      "os_hardening": "Standard",
+      "network_exposure": "Local"
+    },
+    "recommendations": [
+      "Enable automatic security updates",
+      "Configure host-based firewall",
+      "Implement network monitoring",
+      "Regular security assessments",
+      "Deploy endpoint detection tools"
+    ],
+    "threat_level": "LOW",
+    "confidence": 0.85
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "timestamp": "2025-08-02T02:32:03.792265",
+  "target": "192.168.1.108",
+  "hostname": "MSI",
+  "platform": "Windows",
+  "tools_available": {
+    "nmap": false,
+    "ping": true,
+    "netstat": true,
+    "arp": true
+  },
+  "open_ports": [
+    25,
+    110,
+    135,
+    139,
+    143,
+    993,
+    995,
+    8080
+  ],
+  "services": {
+    "25": "SMTP",
+    "110": "POP3",
+    "135": "RPC",
+    "139": "NetBIOS",
+    "143": "IMAP",
+    "993": "IMAPS",
+    "995": "POP3S",
+    "8080": "HTTP-Alt (Oracle XML DB/Oracle Database)"
+  },
+  "os_detection": "Windows",
+  "vulnerabilities": [
+    {
+      "port": 25,
+      "service": "SMTP",
+      "risks": [
+        "Open relay",
+        "Email spoofing",
+        "Information disclosure"
+      ],
+      "tools": [
+        "Swaks",
+        "Nmap SMTP scripts"
+      ],
+      "severity": "MEDIUM"
+    },
+    {
+      "port": 135,
+      "service": "RPC",
+      "risks": [
+        "RPC enumeration",
+        "Buffer overflows",
+        "Privilege escalation"
+      ],
+      "tools": [
+        "RPCClient",
+        "Enum4linux"
+      ],
+      "severity": "HIGH"
+    },
+    {
+      "port": 139,
+      "service": "NetBIOS",
+      "risks": [
+        "SMB enumeration",
+        "Null sessions",
+        "Share access"
+      ],
+      "tools": [
+        "SMBClient",
+        "Enum4linux",
+        "CrackMapExec"
+      ],
+      "severity": "MEDIUM"
+    }
+  ],
+  "risk_level": "HIGH"
+}

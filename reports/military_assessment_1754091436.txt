@@ -1,0 +1,25 @@
+
+INTELPROBE NETWORK SECURITY ASSESSMENT REPORT
+Generated: 2025-08-02 01:37:16
+Operator: Lintshiwe Slade
+
+EXECUTIVE SUMMARY
+=================
+Total Hosts Scanned: 1
+Hosts with Open Ports: 1
+Total Open Ports: 2
+Vulnerabilities Found: 1
+Risk Level: LOW
+
+CRITICAL SERVICES DETECTED:
+- unknown (135)
+
+DETAILED RESULTS
+================
+
+Host: 127.0.0.1
+Hostname: golden-moments-wedding-venue.local
+OS: Windows (SMB), Windows
+Open Ports: 135, 8080
+Vulnerabilities: 1
+  - HTTP Service - Check for web vulnerabilities
