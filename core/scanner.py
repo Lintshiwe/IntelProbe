@@ -18,7 +18,7 @@ import ipaddress
 import concurrent.futures
 from typing import List, Dict, Any, Optional, Tuple
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 # Try to import optional dependencies with graceful fallback
@@ -29,59 +29,76 @@ try:
     SCAPY_AVAILABLE = True
 except ImportError:
     SCAPY_AVAILABLE = False
-    print("⚠️ Warning: Scapy not available. Some advanced scanning features will be disabled.")
+    print("Warning: Scapy not available. Some advanced scanning features will be disabled.")
 
 try:
     import pandas as pd
     PANDAS_AVAILABLE = True
 except ImportError:
     PANDAS_AVAILABLE = False
-    print("⚠️ Warning: Pandas not available. Data analysis features will be limited.")
+    print("Warning: Pandas not available. Data analysis features will be limited.")
 
 try:
     import nmap
     NMAP_AVAILABLE = True
 except ImportError:
     NMAP_AVAILABLE = False
-    print("⚠️ Warning: python-nmap not available. Nmap integration will be disabled.")
+    print("Warning: python-nmap not available. Nmap integration will be disabled.")
 
 try:
     import psutil
     PSUTIL_AVAILABLE = True
 except ImportError:
     PSUTIL_AVAILABLE = False
-    print("⚠️ Warning: psutil not available. System monitoring features will be limited.")
+    print("Warning: psutil not available. System monitoring features will be limited.")
 
 try:
     import netifaces
     NETIFACES_AVAILABLE = True
 except ImportError:
     NETIFACES_AVAILABLE = False
-    print("⚠️ Warning: netifaces not available. Network interface detection will be limited.")
+    print("Warning: netifaces not available. Network interface detection will be limited.")
 
 @dataclass
 class ScanResult:
-    """Data class for scan results"""
+    """Data class for network scan results.
+    
+    Attributes:
+        ip: IP address of the discovered host.
+        mac: MAC address of the host.
+        hostname: Resolved hostname.
+        os: Detected operating system.
+        ports: List of open ports.
+        services: Dictionary mapping ports to service names.
+        response_time: Time to receive response in seconds.
+        timestamp: When the scan was performed.
+    """
     ip: str
     mac: str = ""
     hostname: str = ""
     os: str = ""
-    ports: List[int] = None
-    services: Dict[str, str] = None
+    ports: List[int] = field(default_factory=list)
+    services: Dict[str, str] = field(default_factory=dict)
     response_time: float = 0.0
     timestamp: str = ""
     
-    def __post_init__(self):
-        if self.ports is None:
-            self.ports = []
-        if self.services is None:
-            self.services = {}
+    def __post_init__(self) -> None:
+        """Initialize default timestamp if not provided."""
         if not self.timestamp:
             self.timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
 
-@dataclass 
+@dataclass
 class WifiNetwork:
-    """Data class for WiFi networks"""
+    """Data class for discovered WiFi networks.
+    
+    Attributes:
+        bssid: MAC address of the access point.
+        ssid: Network name.
+        channel: WiFi channel number.
+        encryption: Encryption type (WPA2, WPA3, WEP, Open).
+        signal_strength: Signal strength in dBm.
+        timestamp: When the network was discovered.
+    """
     bssid: str
     ssid: str
     channel: int
@@ -89,32 +106,50 @@ class WifiNetwork:
     signal_strength: int
     timestamp: str = ""
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """Initialize default timestamp if not provided."""
         if not self.timestamp:
             self.timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
 
 class EnhancedScanner:
-    """Enhanced network scanner with multi-threading and AI integration"""
+    """Enhanced network scanner with multi-threading and AI integration.
     
-    def __init__(self, config):
-        """Initialize the enhanced scanner"""
+    Provides comprehensive network scanning capabilities including host
+    discovery, port scanning, service detection, OS fingerprinting,
+    and WiFi enumeration.
+    
+    Attributes:
+        config: Configuration manager instance.
+        results: List of scan results.
+        wifi_networks: DataFrame or list of discovered WiFi networks.
+        nm: Nmap scanner instance (if available).
+    """
+    
+    def __init__(self, config) -> None:
+        """Initialize the enhanced scanner.
+        
+        Args:
+            config: Configuration manager instance.
+        """
         self.config = config
         self.logger = logging.getLogger(__name__)
-        self.results = []
+        self.results: List[ScanResult] = []
+        self._scapy_available = SCAPY_AVAILABLE
+        self._nmap_available = NMAP_AVAILABLE
         
         # Initialize WiFi networks DataFrame if pandas is available
         if PANDAS_AVAILABLE:
             self.wifi_networks = pd.DataFrame(columns=["BSSID", "SSID", "Channel", "Encryption", "Signal"])
             self.wifi_networks.set_index("BSSID", inplace=True)
         else:
-            self.wifi_networks = []  # Use list as fallback
+            self.wifi_networks: List[WifiNetwork] = []
         
         # Initialize nmap scanner if available
         if NMAP_AVAILABLE:
             try:
                 self.nm = nmap.PortScanner()
             except Exception as e:
-                self.logger.warning(f"Nmap not available: {e}")
+                self.logger.warning("Nmap executable not found in PATH - using fallback scanning methods")
                 self.nm = None
         else:
             self.nm = None
@@ -131,7 +166,7 @@ class EnhancedScanner:
         Returns:
             List of ScanResult objects
         """
-        self.logger.info(f"🔍 Starting network scan of {target}")
+        self.logger.info(f"Starting network scan of {target}")
         start_time = time.time()
         
         try:
@@ -139,7 +174,7 @@ class EnhancedScanner:
             network = ipaddress.ip_network(target, strict=False)
             hosts = list(network.hosts())
             
-            self.logger.info(f"📊 Scanning {len(hosts)} hosts with {threads} threads")
+            self.logger.info(f"Scanning {len(hosts)} hosts with {threads} threads")
             
             # Multi-threaded ARP scanning
             results = []
@@ -155,13 +190,13 @@ class EnhancedScanner:
                         result = future.result()
                         if result:
                             results.append(result)
-                            self.logger.debug(f"✅ Found host: {result.ip}")
+                            self.logger.debug(f"Found host: {result.ip}")
                     except Exception as e:
-                        self.logger.debug(f"❌ Error scanning {ip}: {e}")
+                        self.logger.debug(f"Error scanning {ip}: {e}")
             
             # Enhanced scanning for discovered hosts
             if results:
-                self.logger.info(f"🔎 Performing enhanced scan on {len(results)} discovered hosts")
+                self.logger.info(f"Performing enhanced scan on {len(results)} discovered hosts")
                 enhanced_results = []
                 
                 with concurrent.futures.ThreadPoolExecutor(max_workers=min(threads, len(results))) as executor:
@@ -180,14 +215,14 @@ class EnhancedScanner:
                 results = enhanced_results
             
             scan_time = time.time() - start_time
-            self.logger.info(f"✅ Network scan completed in {scan_time:.2f} seconds")
-            self.logger.info(f"📈 Discovered {len(results)} active hosts")
+            self.logger.info(f"Network scan completed in {scan_time:.2f} seconds")
+            self.logger.info(f"Discovered {len(results)} active hosts")
             
             self.results.extend(results)
             return results
             
         except Exception as e:
-            self.logger.error(f"❌ Network scan failed: {e}")
+            self.logger.error(f"Network scan failed: {e}")
             return []
     
     def _scan_host_arp(self, ip: str, timeout: int) -> Optional[ScanResult]:
@@ -496,7 +531,7 @@ class EnhancedScanner:
         Returns:
             Dictionary with scan results
         """
-        self.logger.info(f"🔍 Starting port scan of {target}")
+        self.logger.info(f"Starting port scan of {target}")
         start_time = time.time()
         
         try:
@@ -514,18 +549,18 @@ class EnhancedScanner:
             results = {}
             
             for host in hosts:
-                self.logger.info(f"🎯 Scanning {host} - {len(ports)} ports")
+                self.logger.info(f"Scanning {host} - {len(ports)} ports")
                 host_results = self._scan_host_ports(host, ports, threads, service_detection)
                 if host_results['open_ports']:
                     results[host] = host_results
             
             scan_time = time.time() - start_time
-            self.logger.info(f"✅ Port scan completed in {scan_time:.2f} seconds")
+            self.logger.info(f"Port scan completed in {scan_time:.2f} seconds")
             
             return results
             
         except Exception as e:
-            self.logger.error(f"❌ Port scan failed: {e}")
+            self.logger.error(f"Port scan failed: {e}")
             return {}
     
     def _parse_port_range(self, port_range: str) -> List[int]:
@@ -641,7 +676,7 @@ class EnhancedScanner:
             interface = self._get_default_wifi_interface()
         
         if not interface:
-            self.logger.error("❌ No WiFi interface available")
+            self.logger.error("No WiFi interface available")
             return []
         
         self.logger.info(f"📡 Starting WiFi scan on {interface} for {duration} seconds")
@@ -676,11 +711,11 @@ class EnhancedScanner:
             sniff_thread.join(timeout=duration + 5)
             stop_event.set()
             
-            self.logger.info(f"✅ WiFi scan completed. Found {len(networks)} networks")
+            self.logger.info(f"WiFi scan completed. Found {len(networks)} networks")
             return networks
             
         except Exception as e:
-            self.logger.error(f"❌ WiFi scan failed: {e}")
+            self.logger.error(f"WiFi scan failed: {e}")
             return []
     
     def _get_default_wifi_interface(self) -> Optional[str]:
@@ -833,11 +868,11 @@ class EnhancedScanner:
                 ])
                 df.to_csv(filename, index=False)
                 
-            self.logger.info(f"✅ Results exported to {filename}")
+            self.logger.info(f"Results exported to {filename}")
             return True
             
         except Exception as e:
-            self.logger.error(f"❌ Export failed: {e}")
+            self.logger.error(f"Export failed: {e}")
             return False
     
     def get_scan_summary(self) -> Dict[str, Any]:
@@ -861,3 +896,10 @@ class EnhancedScanner:
             'average_response_time': sum(r.response_time for r in self.results) / len(self.results),
             'scan_timestamp': time.strftime("%Y-%m-%d %H:%M:%S")
         }
+
+class NetworkScanner(EnhancedScanner):
+    """Backward compatibility wrapper for legacy imports.
+    Older code expects NetworkScanner; this subclass preserves the public API
+    of EnhancedScanner without modification.
+    """
+    pass

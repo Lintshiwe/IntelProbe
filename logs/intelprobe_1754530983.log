@@ -1,0 +1,7 @@
+2025-08-07 03:43:03,648 - core.utils - INFO - setup_logging:68 - Logging configured successfully
+2025-08-07 03:43:03,678 - core.scanner - WARNING - __init__:117 - Nmap executable not found in PATH - using fallback scanning methods
+2025-08-07 03:43:03,678 - core.ai_engine - WARNING - __init__:121 - No AI provider configured - AI analysis features disabled
+2025-08-07 03:43:03,679 - core.pentester - INFO - _load_exploit_database:74 - Loading exploit database...
+2025-08-07 03:43:03,679 - core.pentester - INFO - _load_exploit_database:92 - Exploit database loaded successfully
+2025-08-07 03:43:03,680 - core.pentester - INFO - _load_vulnerability_database:100 - Loading vulnerability database...
+2025-08-07 03:43:03,680 - core.pentester - INFO - _load_vulnerability_database:111 - Vulnerability database loaded successfully

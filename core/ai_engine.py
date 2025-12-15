@@ -5,6 +5,7 @@ Provides AI-powered analysis, threat prediction, and intelligent insights
 
 import json
 import logging
+import os
 import time
 from typing import Dict, List, Any, Optional, Union
 from dataclasses import dataclass
@@ -19,21 +20,21 @@ try:
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
-    print("⚠️ Warning: OpenAI not available. OpenAI-powered analysis features will be disabled.")
+    print("Warning: OpenAI not available. OpenAI-powered analysis features will be disabled.")
 
 try:
     import google.generativeai as genai
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
-    print("⚠️ Warning: Google Gemini not available. Gemini-powered analysis features will be disabled.")
+    print("Warning: Google Gemini not available. Gemini-powered analysis features will be disabled.")
 
 try:
     import numpy as np
     NUMPY_AVAILABLE = True
 except ImportError:
     NUMPY_AVAILABLE = False
-    print("⚠️ Warning: NumPy not available. Advanced mathematical operations will be limited.")
+    print("Warning: NumPy not available. Advanced mathematical operations will be limited.")
 
 try:
     from sklearn.ensemble import IsolationForest
@@ -41,25 +42,44 @@ try:
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
-    print("⚠️ Warning: scikit-learn not available. Machine learning features will be disabled.")
+    print("Warning: scikit-learn not available. Machine learning features will be disabled.")
 
 @dataclass
 class ThreatAnalysis:
-    """Data class for threat analysis results"""
-    threat_level: str  # low, medium, high, critical
-    confidence: float  # 0-1
+    """Data class for threat analysis results.
+    
+    Attributes:
+        threat_level: Overall threat level (low, medium, high, critical).
+        confidence: Confidence score (0.0-1.0).
+        threats: List of identified threats.
+        recommendations: List of security recommendations.
+        analysis: Detailed analysis text.
+        timestamp: When the analysis was performed.
+    """
+    threat_level: str
+    confidence: float
     threats: List[str]
     recommendations: List[str]
     analysis: str
     timestamp: str = ""
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """Initialize default timestamp if not provided."""
         if not self.timestamp:
             self.timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
 
 @dataclass
 class NetworkInsight:
-    """Data class for network insights"""
+    """Data class for network insights.
+    
+    Attributes:
+        insight_type: Category of insight (security, performance, etc.).
+        description: Detailed description of the insight.
+        impact: Potential impact if not addressed.
+        recommendation: Recommended action to take.
+        confidence: Confidence score (0.0-1.0).
+        timestamp: When the insight was generated.
+    """
     insight_type: str
     description: str
     impact: str
@@ -67,15 +87,29 @@ class NetworkInsight:
     confidence: float
     timestamp: str = ""
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """Initialize default timestamp if not provided."""
         if not self.timestamp:
             self.timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
 
 class AIEngine:
-    """AI-powered analysis engine for network forensics"""
+    """AI-powered analysis engine for network forensics.
     
-    def __init__(self, config):
-        """Initialize AI engine with configuration"""
+    Provides AI-driven threat analysis, anomaly detection, and
+    intelligent insights using OpenAI or Google Gemini.
+    
+    Attributes:
+        config: Configuration manager instance.
+        ai_provider: Active AI provider name ('openai', 'gemini', or None).
+        is_trained: Whether ML models have been trained.
+    """
+    
+    def __init__(self, config) -> None:
+        """Initialize AI engine with configuration.
+        
+        Args:
+            config: Configuration manager instance.
+        """
         self.config = config
         self.logger = logging.getLogger(__name__)
         self.ai_config = config.get_ai_config()
@@ -91,21 +125,20 @@ class AIEngine:
                 openai.api_key = self.ai_config['openai_api_key']
                 self.openai_client = openai
                 self.ai_provider = 'openai'
-                self.logger.info("✅ AI engine initialized with OpenAI")
             except Exception as e:
-                self.logger.warning(f"⚠️ Failed to initialize OpenAI: {e}")
+                self.logger.warning(f"Failed to initialize OpenAI: {e}")
         
         # Try to initialize Gemini if OpenAI is not available or configured
-        if not self.ai_provider and GEMINI_AVAILABLE and self.ai_config.get('gemini_enabled', False) and self.ai_config.get('gemini_api_key'):
+        gemini_api_key = self.ai_config.get('gemini_api_key') or os.getenv('GEMINI_API_KEY')
+        if not self.ai_provider and GEMINI_AVAILABLE and self.ai_config.get('gemini_enabled', True) and gemini_api_key:
             try:
-                genai.configure(api_key=self.ai_config['gemini_api_key'])
+                genai.configure(api_key=gemini_api_key)
                 self.gemini_client = genai.GenerativeModel(
                     model_name=self.ai_config.get('gemini_model', 'gemini-1.5-flash')
                 )
                 self.ai_provider = 'gemini'
-                self.logger.info("✅ AI engine initialized with Google Gemini")
             except Exception as e:
-                self.logger.warning(f"⚠️ Failed to initialize Gemini: {e}")
+                self.logger.warning(f"Failed to initialize Gemini: {e}")
         
         # Fallback to legacy configuration format for backward compatibility
         if not self.ai_provider and self.ai_config.get('enabled', False) and self.ai_config.get('api_key'):
@@ -114,12 +147,11 @@ class AIEngine:
                     openai.api_key = self.ai_config['api_key']
                     self.openai_client = openai
                     self.ai_provider = 'openai'
-                    self.logger.info("✅ AI engine initialized with OpenAI (legacy config)")
                 except Exception as e:
-                    self.logger.warning(f"⚠️ Failed to initialize OpenAI (legacy): {e}")
+                    self.logger.warning(f"Failed to initialize OpenAI (legacy): {e}")
         
         if not self.ai_provider:
-            self.logger.info("ℹ️ No AI provider configured - AI analysis features disabled")
+            self.logger.warning("No AI provider configured - AI analysis features disabled")
         
         # Initialize anomaly detection model if scikit-learn is available
         if SKLEARN_AVAILABLE:
@@ -133,7 +165,7 @@ class AIEngine:
             self.anomaly_detector = None
             self.scaler = None
             self.is_trained = False
-            self.logger.info("ℹ️ scikit-learn not available - anomaly detection disabled")
+            self.logger.info("scikit-learn not available - anomaly detection disabled")
         
         # Load pre-trained models if available
         self._load_models()
@@ -185,7 +217,7 @@ class AIEngine:
                     with open(scaler_path, 'rb') as f:
                         self.scaler = pickle.load(f)
                     self.is_trained = True
-                    self.logger.info("✅ Loaded pre-trained anomaly detection models")
+                    self.logger.info("Loaded pre-trained anomaly detection models")
         except Exception as e:
             self.logger.debug(f"Could not load pre-trained models: {e}")
     
@@ -199,7 +231,7 @@ class AIEngine:
         Returns:
             ThreatAnalysis object with findings
         """
-        self.logger.info("🤖 Analyzing network scan results with AI")
+        self.logger.info("Analyzing network scan results with AI")
         
         try:
             # Extract features for analysis
@@ -250,7 +282,7 @@ class AIEngine:
             )
             
         except Exception as e:
-            self.logger.error(f"❌ AI analysis failed: {e}")
+            self.logger.error(f"AI analysis failed: {e}")
             return ThreatAnalysis(
                 threat_level="unknown",
                 confidence=0.0,
@@ -458,7 +490,7 @@ class AIEngine:
         Returns:
             Formatted report dictionary
         """
-        self.logger.info("📊 Generating AI-powered security report")
+        self.logger.info("Generating AI-powered security report")
         
         try:
             # Basic report structure
@@ -535,7 +567,7 @@ class AIEngine:
             True if training successful
         """
         if not SKLEARN_AVAILABLE:
-            self.logger.info("ℹ️ scikit-learn not available - anomaly detection training skipped")
+            self.logger.info("scikit-learn not available - anomaly detection training skipped")
             return False
             
         try:
@@ -550,7 +582,7 @@ class AIEngine:
                     self.logger.warning("Insufficient training data for anomaly detection")
                     return False
                 self.is_trained = True
-                self.logger.info(f"✅ Simple anomaly detection enabled with {len(features)} samples")
+                self.logger.info(f"Simple anomaly detection enabled with {len(features)} samples")
                 return True
             
             if len(features) < 10:
@@ -565,11 +597,11 @@ class AIEngine:
             # Save models
             self._save_models()
             
-            self.logger.info(f"✅ Anomaly detection model trained with {len(features)} samples")
+            self.logger.info(f"Anomaly detection model trained with {len(features)} samples")
             return True
             
         except Exception as e:
-            self.logger.error(f"❌ Model training failed: {e}")
+            self.logger.error(f"Model training failed: {e}")
             return False
     
     def _save_models(self) -> None:

@@ -1,0 +1,6 @@
+2025-08-07 22:41:26,489 - core.utils - INFO - setup_logging:68 - Logging configured successfully
+2025-08-07 22:41:26,522 - core.scanner - WARNING - __init__:117 - Nmap executable not found in PATH - using fallback scanning methods
+2025-08-07 22:41:26,522 - core.ai_engine - WARNING - __init__:121 - No AI provider configured - AI analysis features disabled
+2025-08-07 22:41:26,535 - core.scanner - INFO - scan_ports:499 - Starting port scan of 127.0.0.1
+2025-08-07 22:41:26,536 - core.scanner - INFO - scan_ports:517 - Scanning 127.0.0.1 - 11 ports
+2025-08-07 22:41:27,568 - core.scanner - INFO - scan_ports:523 - Port scan completed in 1.03 seconds

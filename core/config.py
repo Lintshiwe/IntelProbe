@@ -1,6 +1,11 @@
-"""
-Configuration Manager for IntelProbe
-Handles configuration loading, validation, and management
+"""Configuration Manager for IntelProbe.
+
+Handles configuration loading, validation, and management.
+Provides typed access to configuration values with fallback defaults.
+
+Author: Lintshiwe Slade (@lintshiwe)
+GitHub: https://github.com/lintshiwe/IntelProbe
+License: MIT License
 """
 
 import configparser
@@ -12,14 +17,21 @@ import json
 import logging
 
 class ConfigManager:
-    """Manages configuration for IntelProbe application"""
+    """Manages configuration for IntelProbe application.
     
-    def __init__(self, config_path: str = "config.ini"):
-        """
-        Initialize configuration manager
+    Provides typed access to configuration values with automatic
+    fallback to defaults when values are missing or invalid.
+    
+    Attributes:
+        config_path: Path to the configuration file.
+        config: ConfigParser instance with loaded configuration.
+    """
+    
+    def __init__(self, config_path: str = "config.ini") -> None:
+        """Initialize configuration manager.
         
         Args:
-            config_path: Path to configuration file
+            config_path: Path to configuration file (default: config.ini).
         """
         self.config_path = Path(config_path)
         self.config = configparser.ConfigParser()
@@ -119,7 +131,7 @@ class ConfigManager:
             with open(self.config_path, 'w') as f:
                 self.config.write(f)
                 
-            print(f"✅ Created default configuration: {self.config_path}")
+            print(f"Created default configuration: {self.config_path}")
             
         except Exception as e:
             logging.error(f"Failed to create default config: {e}")
@@ -203,7 +215,17 @@ class ConfigManager:
             'max_tokens': self.get('AI', 'MaxTokens'),
             'temperature': self.get('AI', 'Temperature'),
             'enable_predictions': self.get('AI', 'EnablePredictions'),
-            'enable_reports': self.get('AI', 'EnableReports')
+            'enable_reports': self.get('AI', 'EnableReports'),
+            
+            # Gemini specific
+            'gemini_enabled': self.get('AI', 'GeminiEnabled', fallback=True),
+            'gemini_api_key': self.get('AI', 'GeminiApiKey', fallback=''),
+            'gemini_model': self.get('AI', 'GeminiModel', fallback='gemini-1.5-flash'),
+            
+            # OpenAI specific
+            'openai_enabled': self.get('AI', 'Provider', fallback='').lower() == 'openai',
+            'openai_api_key': self.get('AI', 'OpenAIApiKey', fallback=''),
+            'openai_model': self.get('AI', 'OpenAIModel', fallback='gpt-4-mini')
         }
     
     def get_network_config(self) -> Dict[str, Any]:
@@ -240,7 +262,11 @@ class ConfigManager:
         }
     
     def to_dict(self) -> Dict[str, Dict[str, Any]]:
-        """Convert configuration to dictionary"""
+        """Convert configuration to dictionary.
+        
+        Returns:
+            Nested dictionary with all configuration sections and options.
+        """
         result = {}
         for section in self.config.sections():
             result[section] = {}
@@ -251,5 +277,10 @@ class ConfigManager:
         return result
     
     def __str__(self) -> str:
-        """String representation of configuration"""
+        """Return string representation of configuration.
+        
+        Returns:
+            JSON-formatted configuration string.
+        """
         return json.dumps(self.to_dict(), indent=2)
+

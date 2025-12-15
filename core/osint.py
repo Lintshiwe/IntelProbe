@@ -1,17 +1,21 @@
-"""
-OSINT (Open Source Intelligence) Module for IntelProbe
-Enhanced intelligence gathering capabilities based on netspionage
+"""OSINT (Open Source Intelligence) Module for IntelProbe.
+
+Enhanced intelligence gathering capabilities based on netspionage.
+Provides MAC address lookup, IP intelligence, domain analysis,
+and threat intelligence integration.
+
+Author: Lintshiwe Slade (@lintshiwe)
+GitHub: https://github.com/lintshiwe/IntelProbe
+License: MIT License
 """
 
-import requests
 import json
 import time
 import socket
-import dns.resolver
 import ipaddress
 from typing import Dict, List, Any, Optional, Tuple
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 import re
 import concurrent.futures
@@ -19,9 +23,35 @@ import threading
 from urllib.parse import urljoin
 import hashlib
 
+# Optional dependencies with graceful fallback
+try:
+    import requests
+    REQUESTS_AVAILABLE = True
+except ImportError:
+    REQUESTS_AVAILABLE = False
+    requests = None
+
+try:
+    import dns.resolver
+    DNS_RESOLVER_AVAILABLE = True
+except (ImportError, Exception) as e:
+    # dns library may have compatibility issues with newer Python versions
+    DNS_RESOLVER_AVAILABLE = False
+    dns = None
+
 @dataclass
 class MacVendorInfo:
-    """MAC address vendor information"""
+    """MAC address vendor information.
+    
+    Attributes:
+        mac_address: The MAC address that was looked up.
+        vendor: Vendor/manufacturer name.
+        company: Full company name.
+        address: Company address.
+        country: Country of the manufacturer.
+        block_type: OUI block type (MA-L, MA-M, MA-S).
+        last_updated: When this information was retrieved.
+    """
     mac_address: str
     vendor: str
     company: str
@@ -30,13 +60,29 @@ class MacVendorInfo:
     block_type: str = ""
     last_updated: str = ""
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """Initialize default timestamp if not provided."""
         if not self.last_updated:
             self.last_updated = time.strftime("%Y-%m-%d %H:%M:%S")
 
 @dataclass
 class IPIntelligence:
-    """IP address intelligence data"""
+    """IP address intelligence data.
+    
+    Attributes:
+        ip_address: The IP address that was analyzed.
+        hostname: Resolved hostname.
+        country: Geographic country.
+        city: Geographic city.
+        organization: Owning organization.
+        isp: Internet Service Provider.
+        asn: Autonomous System Number.
+        threat_level: Threat classification (low, medium, high, critical).
+        is_malicious: Whether the IP is known to be malicious.
+        vpn_detected: Whether VPN usage was detected.
+        proxy_detected: Whether proxy usage was detected.
+        last_seen: When this information was retrieved.
+    """
     ip_address: str
     hostname: str = ""
     country: str = ""
@@ -50,45 +96,70 @@ class IPIntelligence:
     proxy_detected: bool = False
     last_seen: str = ""
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """Initialize default timestamp if not provided."""
         if not self.last_seen:
             self.last_seen = time.strftime("%Y-%m-%d %H:%M:%S")
 
 @dataclass
 class DomainIntelligence:
-    """Domain intelligence information"""
+    """Domain intelligence information.
+    
+    Attributes:
+        domain: The domain name that was analyzed.
+        ip_addresses: Resolved IP addresses.
+        nameservers: Authoritative nameservers.
+        mx_records: Mail exchange records.
+        txt_records: TXT DNS records.
+        creation_date: Domain creation date.
+        expiration_date: Domain expiration date.
+        registrar: Domain registrar.
+        reputation_score: Reputation score (0-100).
+        is_suspicious: Whether the domain appears suspicious.
+    """
     domain: str
-    ip_addresses: List[str] = None
-    nameservers: List[str] = None
-    mx_records: List[str] = None
-    txt_records: List[str] = None
+    ip_addresses: List[str] = field(default_factory=list)
+    nameservers: List[str] = field(default_factory=list)
+    mx_records: List[str] = field(default_factory=list)
+    txt_records: List[str] = field(default_factory=list)
     creation_date: str = ""
     expiration_date: str = ""
     registrar: str = ""
     reputation_score: float = 0.0
     is_suspicious: bool = False
-    
-    def __post_init__(self):
-        if self.ip_addresses is None:
-            self.ip_addresses = []
-        if self.nameservers is None:
-            self.nameservers = []
-        if self.mx_records is None:
-            self.mx_records = []
-        if self.txt_records is None:
-            self.txt_records = []
 
 class OSINTGatherer:
-    """OSINT intelligence gathering module"""
+    """OSINT intelligence gathering module.
     
-    def __init__(self, config):
-        """Initialize OSINT gatherer"""
+    Provides Open Source Intelligence gathering capabilities including
+    MAC address lookups, IP geolocation, domain analysis, and threat
+    intelligence integration.
+    
+    Attributes:
+        config: Configuration manager instance.
+        session: Requests session for HTTP calls.
+        cache: Cache for API responses.
+    """
+    
+    def __init__(self, config) -> None:
+        """Initialize OSINT gatherer.
+        
+        Args:
+            config: Configuration manager instance.
+        """
         self.config = config
         self.logger = logging.getLogger(__name__)
-        self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'IntelProbe/2.0 OSINT Module'
-        })
+        self._requests_available = REQUESTS_AVAILABLE
+        self._dns_available = DNS_RESOLVER_AVAILABLE
+        
+        if REQUESTS_AVAILABLE:
+            self.session = requests.Session()
+            self.session.headers.update({
+                'User-Agent': 'IntelProbe/2.0 OSINT Module'
+            })
+        else:
+            self.session = None
+            self.logger.warning("requests library not available - HTTP lookups disabled")
         
         # API endpoints
         self.endpoints = {
@@ -122,7 +193,7 @@ class OSINTGatherer:
         Returns:
             MacVendorInfo object with vendor details
         """
-        self.logger.info(f"🔍 Looking up MAC address: {mac_address}")
+        self.logger.info(f"Looking up MAC address: {mac_address}")
         
         # Normalize MAC address format
         mac_clean = self._normalize_mac(mac_address)
@@ -145,11 +216,11 @@ class OSINTGatherer:
             # Cache the result
             self.cache[cache_key] = (time.time(), vendor_info)
             
-            self.logger.info(f"✅ MAC lookup completed: {vendor_info.vendor}")
+            self.logger.info(f"MAC lookup completed: {vendor_info.vendor}")
             return vendor_info
             
         except Exception as e:
-            self.logger.error(f"❌ MAC lookup failed: {e}")
+            self.logger.error(f"MAC lookup failed: {e}")
             return MacVendorInfo(
                 mac_address=mac_address,
                 vendor="Unknown",
@@ -259,11 +330,11 @@ class OSINTGatherer:
             # Cache the result
             self.cache[cache_key] = (time.time(), intel)
             
-            self.logger.info(f"✅ IP analysis completed for {ip_address}")
+            self.logger.info(f"IP analysis completed for {ip_address}")
             return intel
             
         except Exception as e:
-            self.logger.error(f"❌ IP analysis failed: {e}")
+            self.logger.error(f"IP analysis failed: {e}")
             return intel
     
     def _get_ip_geolocation(self, ip_address: str) -> Optional[Dict[str, Any]]:
@@ -410,11 +481,11 @@ class OSINTGatherer:
             # Cache the result
             self.cache[cache_key] = (time.time(), intel)
             
-            self.logger.info(f"✅ Domain analysis completed for {domain}")
+            self.logger.info(f"Domain analysis completed for {domain}")
             return intel
             
         except Exception as e:
-            self.logger.error(f"❌ Domain analysis failed: {e}")
+            self.logger.error(f"Domain analysis failed: {e}")
             return intel
     
     def _resolve_domain_dns(self, domain: str) -> Optional[Dict[str, List[str]]]:
@@ -535,7 +606,7 @@ class OSINTGatherer:
                     self.logger.error(f"Bulk lookup failed for {ip}: {e}")
                     results[ip] = IPIntelligence(ip_address=ip)
         
-        self.logger.info(f"✅ Bulk IP lookup completed")
+        self.logger.info(f"Bulk IP lookup completed")
         return results
     
     def generate_osint_report(self, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -548,7 +619,7 @@ class OSINTGatherer:
         Returns:
             Formatted OSINT report
         """
-        self.logger.info("📊 Generating OSINT intelligence report")
+        self.logger.info("Generating OSINT intelligence report")
         
         report = {
             'report_metadata': {
@@ -597,7 +668,7 @@ class OSINTGatherer:
     def clear_cache(self) -> None:
         """Clear OSINT cache"""
         self.cache.clear()
-        self.logger.info("🗑️ OSINT cache cleared")
+        self.logger.info("OSINT cache cleared")
     
     def get_cache_stats(self) -> Dict[str, Any]:
         """Get cache statistics"""

@@ -1,7 +1,17 @@
 #!/usr/bin/env python3
-"""
-IntelProbe - AI-Powered Network Forensics CLI
-Enhanced version of netspionage with AI capabilities and modern features
+"""IntelProbe - AI-Powered Network Forensics CLI.
+
+Enhanced version of netspionage with AI capabilities and modern features.
+Provides network scanning, OSINT gathering, attack detection, and AI analysis.
+
+Usage:
+    python intelprobe.py                    # Interactive mode
+    python intelprobe.py scan network <target>
+    python intelprobe.py --help
+
+Author: Lintshiwe Slade (@lintshiwe)
+GitHub: https://github.com/lintshiwe/IntelProbe
+License: MIT License
 """
 
 import sys

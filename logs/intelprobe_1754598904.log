@@ -1,0 +1,3 @@
+2025-08-07 22:35:04,472 - core.utils - INFO - setup_logging:68 - Logging configured successfully
+2025-08-07 22:35:04,532 - core.scanner - WARNING - __init__:117 - Nmap executable not found in PATH - using fallback scanning methods
+2025-08-07 22:35:04,533 - core.ai_engine - WARNING - __init__:121 - No AI provider configured - AI analysis features disabled

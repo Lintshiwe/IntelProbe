@@ -1,58 +1,104 @@
-"""
-AI-Powered Forensics Module for IntelProbe
-Provides advanced forensic analysis and automated penetration testing capabilities
+"""AI-Powered Forensics Module for IntelProbe.
+
+Provides advanced forensic analysis and automated evidence collection
+capabilities for network security investigations.
+
+Author: Lintshiwe Slade (@lintshiwe)
+GitHub: https://github.com/lintshiwe/IntelProbe
+License: MIT License
 """
 
 import logging
 import time
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Any, Optional, Union
 from pathlib import Path
 import asyncio
 import threading
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
-import numpy as np
-import pandas as pd
-from sklearn.ensemble import IsolationForest
-from sklearn.preprocessing import StandardScaler
+
+# Optional dependencies with graceful fallback
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+    np = None
+
+try:
+    import pandas as pd
+    PANDAS_AVAILABLE = True
+except ImportError:
+    PANDAS_AVAILABLE = False
+    pd = None
+
+try:
+    from sklearn.ensemble import IsolationForest
+    from sklearn.preprocessing import StandardScaler
+    SKLEARN_AVAILABLE = True
+except ImportError:
+    SKLEARN_AVAILABLE = False
+    IsolationForest = None
+    StandardScaler = None
 
 @dataclass
 class ForensicEvidence:
-    """Container for forensic evidence"""
+    """Stores details about a piece of evidence found during analysis.
+    
+    Attributes:
+        timestamp: When the evidence was collected.
+        evidence_type: Category of evidence (network, file, memory, etc.).
+        description: Human-readable description of the evidence.
+        source: Where the evidence was collected from.
+        data: Raw evidence data.
+        confidence: Confidence score (0.0-1.0).
+        analysis: AI-generated analysis of the evidence.
+        artifacts: List of related artifact paths or identifiers.
+    """
     timestamp: str
     evidence_type: str
     description: str
     source: str
-    data: Dict[str, Any]
-    confidence: float
-    analysis: str
-    artifacts: List[str]
+    data: Dict[str, Any] = field(default_factory=dict)
+    confidence: float = 0.0
+    analysis: str = ""
+    artifacts: List[str] = field(default_factory=list)
 
 @dataclass
 class ForensicReport:
-    """Container for forensic analysis report"""
+    """Summarizes the results of a forensic investigation.
+    
+    Attributes:
+        case_id: Unique identifier for the forensic case.
+        timestamp: When the report was generated.
+        evidence_items: List of collected evidence.
+        findings: Summary of key findings.
+        attack_vectors: Identified attack vectors.
+        vulnerabilities: Discovered vulnerabilities.
+        recommendations: Security recommendations.
+        confidence: Overall confidence score.
+        analysis_summary: AI-generated summary of the investigation.
+    """
     case_id: str
     timestamp: str
-    evidence_items: List[ForensicEvidence]
-    findings: List[str]
-    attack_vectors: List[Dict[str, Any]]
-    vulnerabilities: List[Dict[str, Any]]
-    recommendations: List[str]
-    confidence: float
-    analysis_summary: str
+    evidence_items: List[ForensicEvidence] = field(default_factory=list)
+    findings: List[str] = field(default_factory=list)
+    attack_vectors: List[Dict[str, Any]] = field(default_factory=list)
+    vulnerabilities: List[Dict[str, Any]] = field(default_factory=list)
+    recommendations: List[str] = field(default_factory=list)
+    confidence: float = 0.0
+    analysis_summary: str = ""
 
 class ForensicsEngine:
-    """Advanced forensics and automated pentesting engine"""
+    """Handles forensic analysis and penetration testing."""
 
     def __init__(self, config, ai_engine):
-        """Initialize forensics engine"""
+        """Set up the forensics engine."""
         self.config = config
         self.ai_engine = ai_engine
         self.logger = logging.getLogger(__name__)
-        
-        # Initialize state
         self.active_analysis = False
         self.evidence_collection = []
         self.attack_vectors = []
@@ -66,6 +112,51 @@ class ForensicsEngine:
         self._load_forensic_models()
         self._load_attack_signatures()
 
+    def _load_forensic_models(self) -> None:
+        """Load forensic analysis models and patterns."""
+        try:
+            # Initialize forensic patterns and models
+            self.forensic_patterns = {
+                'network_anomalies': [],
+                'malware_signatures': [],
+                'attack_patterns': [],
+                'system_indicators': []
+            }
+            
+            # Load pre-trained models if available
+            try:
+                # This would load actual ML models in production
+                pass  # Removed verbose logging
+            except Exception as e:
+                self.logger.warning(f"Could not load pre-trained models: {e}")
+                
+        except Exception as e:
+            self.logger.error(f"Failed to load forensic models: {e}")
+
+    def _load_attack_signatures(self) -> None:
+        """Load attack signatures and patterns."""
+        try:
+            # Initialize attack signature database
+            self.attack_signatures = {
+                'network_attacks': [
+                    'port_scan', 'syn_flood', 'ddos', 'mitm',
+                    'dns_poisoning', 'arp_spoofing'
+                ],
+                'system_attacks': [
+                    'privilege_escalation', 'backdoor', 'rootkit',
+                    'keylogger', 'trojan', 'ransomware'
+                ],
+                'web_attacks': [
+                    'sql_injection', 'xss', 'csrf', 'directory_traversal',
+                    'file_inclusion', 'command_injection'
+                ]
+            }
+            
+            # Removed verbose logging
+            
+        except Exception as e:
+            self.logger.error(f"Failed to load attack signatures: {e}")
+
     def start_forensic_analysis(self, target_data: Dict[str, Any]) -> str:
         """
         Start a new forensic analysis case
@@ -78,7 +169,7 @@ class ForensicsEngine:
         """
         try:
             case_id = f"case_{int(time.time())}"
-            self.logger.info(f"🔍 Starting forensic analysis case: {case_id}")
+            self.logger.info(f"Starting forensic analysis case: {case_id}")
             
             # Initialize case data
             self.evidence_collection = []
@@ -93,11 +184,11 @@ class ForensicsEngine:
             return case_id
             
         except Exception as e:
-            self.logger.error(f"❌ Failed to start forensic analysis: {e}")
+            self.logger.error(f"Failed to start forensic analysis: {e}")
             raise
 
     def _start_evidence_collection(self, target_data: Dict[str, Any]) -> None:
-        """Start automated evidence collection"""
+        """Start automated evidence collection."""
         def collector():
             try:
                 while not self.stop_event.is_set():
@@ -119,7 +210,7 @@ class ForensicsEngine:
         thread.start()
 
     def _start_vulnerability_analysis(self, target_data: Dict[str, Any]) -> None:
-        """Start automated vulnerability analysis"""
+        """Start automated vulnerability analysis."""
         def analyzer():
             try:
                 while not self.stop_event.is_set():
@@ -141,7 +232,7 @@ class ForensicsEngine:
         thread.start()
 
     def _start_attack_vector_analysis(self, target_data: Dict[str, Any]) -> None:
-        """Start automated attack vector analysis"""
+        """Start automated attack vector analysis."""
         def analyzer():
             try:
                 while not self.stop_event.is_set():
@@ -163,7 +254,7 @@ class ForensicsEngine:
         thread.start()
 
     def _analyze_network_traffic(self, target_data: Dict[str, Any]) -> None:
-        """Analyze network traffic for forensic evidence"""
+        """Analyze network traffic for forensic evidence."""
         try:
             # Extract traffic features
             traffic_features = self._extract_traffic_features(target_data)
@@ -190,7 +281,7 @@ class ForensicsEngine:
             self.logger.debug(f"Traffic analysis error: {e}")
 
     def _analyze_system_artifacts(self, target_data: Dict[str, Any]) -> None:
-        """Analyze system artifacts for forensic evidence"""
+        """Analyze system artifacts for forensic evidence."""
         try:
             # Extract system artifacts
             artifacts = self._extract_system_artifacts(target_data)
@@ -217,7 +308,7 @@ class ForensicsEngine:
             self.logger.debug(f"Artifact analysis error: {e}")
 
     def _analyze_memory_dumps(self, target_data: Dict[str, Any]) -> None:
-        """Analyze memory dumps for forensic evidence"""
+        """Analyze memory dumps for forensic evidence."""
         try:
             # Extract memory features
             memory_data = self._extract_memory_features(target_data)
@@ -244,7 +335,7 @@ class ForensicsEngine:
             self.logger.debug(f"Memory analysis error: {e}")
 
     def _scan_service_vulnerabilities(self, target_data: Dict[str, Any]) -> None:
-        """Scan services for known vulnerabilities"""
+        """Scan services for known vulnerabilities."""
         try:
             # Extract service information
             services = self._extract_service_info(target_data)
@@ -259,7 +350,7 @@ class ForensicsEngine:
             self.logger.debug(f"Vulnerability scanning error: {e}")
 
     def _analyze_configurations(self, target_data: Dict[str, Any]) -> None:
-        """Analyze system configurations for vulnerabilities"""
+        """Analyze system configurations for vulnerabilities."""
         try:
             # Extract configuration data
             configs = self._extract_config_data(target_data)
@@ -284,7 +375,7 @@ class ForensicsEngine:
             self.logger.debug(f"Configuration analysis error: {e}")
 
     def _analyze_attack_surface(self, target_data: Dict[str, Any]) -> None:
-        """Analyze network attack surface"""
+        """Analyze network attack surface."""
         try:
             # Extract attack surface data
             surface_data = self._extract_attack_surface(target_data)
@@ -299,7 +390,7 @@ class ForensicsEngine:
             self.logger.debug(f"Attack surface analysis error: {e}")
 
     def generate_forensic_report(self, case_id: str) -> ForensicReport:
-        """Generate comprehensive forensic analysis report"""
+        """Generate comprehensive forensic analysis report."""
         try:
             # Generate AI-enhanced analysis
             ai_analysis = self.ai_engine.analyze_network_scan(self.evidence_collection)
@@ -327,7 +418,7 @@ class ForensicsEngine:
             raise
 
     def _generate_findings(self) -> List[str]:
-        """Generate key findings from collected evidence"""
+        """Generate key findings from collected evidence."""
         findings = []
         
         try:
@@ -362,7 +453,7 @@ class ForensicsEngine:
         return findings
 
     def _generate_recommendations(self) -> List[str]:
-        """Generate security recommendations"""
+        """Generate security recommendations."""
         recommendations = []
         
         try:
@@ -396,7 +487,7 @@ class ForensicsEngine:
         return recommendations
 
     def _calculate_confidence(self) -> float:
-        """Calculate overall confidence score"""
+        """Calculate overall confidence score."""
         try:
             # Weight different factors
             evidence_confidence = np.mean([e.confidence for e in self.evidence_collection]) if self.evidence_collection else 0.5
@@ -414,7 +505,7 @@ class ForensicsEngine:
             return 0.5  # Default moderate confidence
 
     def _save_forensic_report(self, report: ForensicReport) -> None:
-        """Save forensic report to disk"""
+        """Save forensic report to disk."""
         try:
             # Create reports directory
             reports_dir = Path("reports/forensics")
@@ -438,17 +529,94 @@ class ForensicsEngine:
             with open(report_file, 'w') as f:
                 json.dump(report_dict, f, indent=2)
                 
-            self.logger.info(f"✅ Forensic report saved: {report_file}")
+            self.logger.info(f"Forensic report saved: {report_file}")
             
         except Exception as e:
             self.logger.error(f"Failed to save forensic report: {e}")
 
     def stop_analysis(self) -> None:
-        """Stop all analysis threads"""
+        """Stop all analysis threads."""
         try:
             self.stop_event.set()
             self.thread_pool.shutdown(wait=True)
-            self.logger.info("✅ Forensic analysis stopped")
+            self.logger.info("Forensic analysis stopped")
             
         except Exception as e:
             self.logger.error(f"Error stopping analysis: {e}")
+
+    def _update_vulnerability_data(self) -> None:
+        """Placeholder to update vulnerability intelligence (stub)."""
+        try:
+            # In a full implementation, refresh vulnerability feeds or CVE cache
+            pass
+        except Exception as e:
+            self.logger.debug(f"Vuln data update error: {e}")
+
+    def _analyze_service_exploitability(self, target_data: Dict[str, Any]) -> None:
+        """Stub service exploitability analysis."""
+        try:
+            pass
+        except Exception as e:
+            self.logger.debug(f"Service exploitability analysis error: {e}")
+
+    def _update_attack_patterns(self) -> None:
+        """Stub attack pattern updater."""
+        try:
+            pass
+        except Exception as e:
+            self.logger.debug(f"Attack pattern update error: {e}")
+
+    # ---- Feature extraction & detection stub methods ----
+    def _extract_traffic_features(self, target_data: Dict[str, Any]) -> Dict[str, Any]:
+        return {}
+
+    def _detect_traffic_anomalies(self, features: Dict[str, Any]) -> List[Dict[str, Any]]:
+        return []
+
+    def _generate_traffic_analysis(self, anomaly: Dict[str, Any]) -> str:
+        return ""
+
+    def _collect_traffic_artifacts(self, anomaly: Dict[str, Any]) -> List[str]:
+        return []
+
+    def _extract_system_artifacts(self, target_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        return []
+
+    def _detect_compromise_indicators(self, artifacts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        return []
+
+    def _generate_artifact_analysis(self, ioc: Dict[str, Any]) -> str:
+        return ""
+
+    def _collect_system_artifacts(self, ioc: Dict[str, Any]) -> List[str]:
+        return []
+
+    def _extract_memory_features(self, target_data: Dict[str, Any]) -> Dict[str, Any]:
+        return {}
+
+    def _detect_malicious_memory_patterns(self, memory_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        return []
+
+    def _generate_memory_analysis(self, pattern: Dict[str, Any]) -> str:
+        return ""
+
+    def _collect_memory_artifacts(self, pattern: Dict[str, Any]) -> List[str]:
+        return []
+
+    def _extract_service_info(self, target_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        return []
+
+    def _check_service_vulnerabilities(self, services: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        return []
+
+    def _extract_config_data(self, target_data: Dict[str, Any]) -> Dict[str, Any]:
+        return {}
+
+    def _detect_misconfigurations(self, configs: Dict[str, Any]) -> List[Dict[str, Any]]:
+        return []
+
+    def _extract_attack_surface(self, target_data: Dict[str, Any]) -> Dict[str, Any]:
+        return {}
+
+    def _analyze_attack_vectors(self, surface: Dict[str, Any]) -> List[Dict[str, Any]]:
+        return []

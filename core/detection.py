@@ -1,6 +1,12 @@
-"""
-Attack Detection Module for IntelProbe
-Enhanced detection capabilities based on netspionage with AI integration
+"""Attack Detection Module for IntelProbe.
+
+Enhanced detection capabilities based on netspionage with AI integration.
+Provides real-time network monitoring, attack signature matching,
+and anomaly detection.
+
+Author: Lintshiwe Slade (@lintshiwe)
+GitHub: https://github.com/lintshiwe/IntelProbe
+License: MIT License
 """
 
 import threading
@@ -8,51 +14,97 @@ import time
 import logging
 from collections import Counter, defaultdict
 from typing import Dict, List, Any, Optional, Callable
-from dataclasses import dataclass
-import scapy.all as scapy
-from scapy.all import ARP, Ether, IP, TCP, UDP, ICMP, sniff, srp
+from dataclasses import dataclass, field
 import ipaddress
 import socket
 import json
 from concurrent.futures import ThreadPoolExecutor
-import numpy as np
 from datetime import datetime, timedelta
+
+# Optional dependencies with graceful fallback
+try:
+    import scapy.all as scapy
+    from scapy.all import ARP, Ether, IP, TCP, UDP, ICMP, sniff, srp
+    SCAPY_AVAILABLE = True
+except ImportError:
+    SCAPY_AVAILABLE = False
+    scapy = None
+
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+    np = None
 
 @dataclass
 class DetectionAlert:
-    """Data class for detection alerts"""
+    """Data class for detection alerts.
+    
+    Attributes:
+        alert_type: Type of detected attack/anomaly.
+        severity: Alert severity level (low, medium, high, critical).
+        source_ip: Source IP address of the attack.
+        target_ip: Target IP address of the attack.
+        description: Human-readable description of the alert.
+        timestamp: When the alert was generated.
+        confidence: Confidence score (0.0-1.0).
+        evidence: Supporting evidence data.
+    """
     alert_type: str
-    severity: str  # low, medium, high, critical
+    severity: str
     source_ip: str = ""
     target_ip: str = ""
     description: str = ""
     timestamp: str = ""
     confidence: float = 1.0
-    evidence: Dict[str, Any] = None
+    evidence: Dict[str, Any] = field(default_factory=dict)
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """Initialize default values after dataclass creation."""
         if not self.timestamp:
             self.timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-        if self.evidence is None:
-            self.evidence = {}
 
 @dataclass
 class AttackSignature:
-    """Attack pattern signature"""
+    """Attack pattern signature for detection.
+    
+    Attributes:
+        name: Human-readable name of the attack.
+        pattern_type: Type classification of the attack pattern.
+        indicators: List of indicators that identify this attack.
+        threshold: Number of events before triggering alert.
+        time_window: Time window in seconds for event counting.
+        severity: Severity level (low, medium, high, critical).
+    """
     name: str
     pattern_type: str
     indicators: List[str]
     threshold: int
-    time_window: int  # seconds
+    time_window: int
     severity: str
 
 class AttackDetector:
-    """Enhanced attack detection with AI-powered analysis"""
+    """Enhanced attack detection with AI-powered analysis.
     
-    def __init__(self, config):
-        """Initialize attack detector"""
+    Provides real-time network monitoring and attack detection
+    using signature matching, anomaly detection, and AI analysis.
+    
+    Attributes:
+        config: Configuration manager instance.
+        is_monitoring: Whether monitoring is currently active.
+        alerts: List of generated detection alerts.
+    """
+    
+    def __init__(self, config) -> None:
+        """Initialize attack detector.
+        
+        Args:
+            config: Configuration manager instance.
+        """
         self.config = config
         self.logger = logging.getLogger(__name__)
+        self._scapy_available = SCAPY_AVAILABLE
         self.detection_config = config.get_detection_config() if hasattr(config, 'get_detection_config') else {}
         
         # Detection state
@@ -136,7 +188,7 @@ class AttackDetector:
             True if monitoring started successfully
         """
         if self.is_monitoring:
-            self.logger.warning("⚠️ Monitoring already in progress")
+            self.logger.warning("Monitoring already in progress")
             return False
         
         try:
@@ -144,10 +196,10 @@ class AttackDetector:
                 interface = self._get_default_interface()
             
             if not interface:
-                self.logger.error("❌ No suitable network interface found")
+                self.logger.error("No suitable network interface found")
                 return False
             
-            self.logger.info(f"🛡️ Starting attack detection on interface: {interface}")
+            self.logger.info(f"Starting attack detection on interface: {interface}")
             
             # Reset state
             self.is_monitoring = True
@@ -171,11 +223,11 @@ class AttackDetector:
             analysis_thread.start()
             self.monitor_threads.append(analysis_thread)
             
-            self.logger.info("✅ Attack detection monitoring started")
+            self.logger.info("Attack detection monitoring started")
             return True
             
         except Exception as e:
-            self.logger.error(f"❌ Failed to start monitoring: {e}")
+            self.logger.error(f"Failed to start monitoring: {e}")
             self.is_monitoring = False
             return False
     
@@ -198,7 +250,7 @@ class AttackDetector:
         # Generate monitoring report
         self._generate_monitoring_report()
         
-        self.logger.info("✅ Attack detection monitoring stopped")
+        self.logger.info("Attack detection monitoring stopped")
     
     def _get_default_interface(self) -> Optional[str]:
         """Get default network interface"""
@@ -473,17 +525,17 @@ class AttackDetector:
             self.stats['alerts_generated'] += 1
             
             # Log the alert
-            severity_emoji = {
-                'low': '🟡',
-                'medium': '🟠', 
-                'high': '🔴',
-                'critical': '🚨'
+            severity_levels = {
+                'low': 'LOW',
+                'medium': 'MEDIUM', 
+                'high': 'HIGH',
+                'critical': 'CRITICAL'
             }
             
-            emoji = severity_emoji.get(alert.severity, '⚪')
+            level = severity_levels.get(alert.severity, 'UNKNOWN')
             
             self.logger.warning(
-                f"{emoji} SECURITY ALERT [{alert.severity.upper()}] - "
+                f"SECURITY ALERT [{level}] - "
                 f"{alert.alert_type}: {alert.description}"
             )
             
@@ -588,7 +640,7 @@ class AttackDetector:
             with open(report_file, 'w') as f:
                 json.dump(report, f, indent=2)
             
-            self.logger.info(f"📊 Detection report saved: {report_file}")
+            self.logger.info(f"Detection report saved: {report_file}")
             
         except Exception as e:
             self.logger.error(f"Report generation failed: {e}")
@@ -605,7 +657,7 @@ class AttackDetector:
         Returns:
             List of ARP spoofing alerts
         """
-        self.logger.info(f"🔍 Starting dedicated ARP spoofing detection on {network}")
+        self.logger.info(f"Starting dedicated ARP spoofing detection on {network}")
         
         arp_alerts = []
         arp_table = {}
@@ -627,7 +679,7 @@ class AttackDetector:
                         }
                     )
                     arp_alerts.append(alert)
-                    self.logger.warning(f"🚨 ARP Spoofing: {alert.description}")
+                    self.logger.warning(f"ARP Spoofing Alert: {alert.description}")
                 
                 arp_table[ip] = mac
         
@@ -644,11 +696,11 @@ class AttackDetector:
                 store=False
             )
             
-            self.logger.info(f"✅ ARP spoofing detection completed. Found {len(arp_alerts)} alerts")
+            self.logger.info(f"ARP spoofing detection completed. Found {len(arp_alerts)} alerts")
             return arp_alerts
             
         except Exception as e:
-            self.logger.error(f"❌ ARP spoofing detection failed: {e}")
+            self.logger.error(f"ARP spoofing detection failed: {e}")
             return []
     
     def _build_arp_baseline(self, network: str, arp_table: Dict[str, str]) -> None:
@@ -731,9 +783,9 @@ class AttackDetector:
                 
                 df.to_csv(filename, index=False)
             
-            self.logger.info(f"✅ Alerts exported to {filename}")
+            self.logger.info(f"Alerts exported to {filename}")
             return True
             
         except Exception as e:
-            self.logger.error(f"❌ Alert export failed: {e}")
+            self.logger.error(f"Alert export failed: {e}")
             return False

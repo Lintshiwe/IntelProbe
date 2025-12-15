@@ -1,6 +1,11 @@
-"""
-Utility functions for IntelProbe
+"""Utility functions for IntelProbe.
+
 Common utilities, validation, formatting, and helper functions
+used throughout the application.
+
+Author: Lintshiwe Slade (@lintshiwe)
+GitHub: https://github.com/lintshiwe/IntelProbe
+License: MIT License
 """
 
 import logging
@@ -65,10 +70,10 @@ def setup_logging(config) -> None:
         logging.getLogger('requests').setLevel(logging.WARNING)
         
         logger = logging.getLogger(__name__)
-        logger.info("✅ Logging configured successfully")
+        logger.info("Logging configured successfully")
         
     except Exception as e:
-        print(f"⚠️ Warning: Failed to setup logging: {e}")
+        print(f"Warning: Failed to setup logging: {e}")
         # Fallback to basic config
         logging.basicConfig(level=logging.INFO)
 

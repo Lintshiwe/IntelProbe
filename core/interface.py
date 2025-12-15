@@ -27,10 +27,24 @@ from .pentester import PenTester
 from .ai_engine import AIEngine
 
 class IntelProbeInterface:
-    """Main interface for IntelProbe CLI"""
+    """Main interface for IntelProbe CLI.
     
-    def __init__(self, config: ConfigManager, args: Any = None):
-        """Initialize IntelProbe interface"""
+    Provides command-line interface, interactive mode, and orchestrates
+    all components including scanning, OSINT, detection, and AI analysis.
+    
+    Attributes:
+        config: Configuration manager instance.
+        args: Command-line arguments.
+        console: Rich console for formatted output.
+    """
+    
+    def __init__(self, config: ConfigManager, args: Any = None) -> None:
+        """Initialize IntelProbe interface.
+        
+        Args:
+            config: Configuration manager instance.
+            args: Command-line arguments (optional).
+        """
         self.config = config
         self.args = args or {}
         self.console = Console()
@@ -39,8 +53,14 @@ class IntelProbeInterface:
         self._setup_logging()
         
     def _validate_network(self, target: str) -> bool:
-        """Validate network target format"""
-        # Basic format validation
+        """Validate network target format.
+        
+        Args:
+            target: Network target in IP or CIDR notation.
+            
+        Returns:
+            True if valid network format, False otherwise.
+        """
         if not target:
             return False
             
@@ -50,38 +70,30 @@ class IntelProbeInterface:
                 ip, cidr = target.split("/")
                 if not (0 <= int(cidr) <= 32):
                     return False
-            except:
+                parts = ip.split(".")
+                if len(parts) != 4:
+                    return False
+                return all(0 <= int(p) <= 255 for p in parts)
+            except (ValueError, AttributeError):
                 return False
                 
-        # Validate IP format
+        # Validate single IP format
         try:
             parts = target.split(".")
             if len(parts) != 4:
                 return False
             return all(0 <= int(p) <= 255 for p in parts)
-        except:
+        except (ValueError, AttributeError):
             return False
-        
-        # Initialize engines
-        self.scanner = EnhancedScanner(config)
-        self.ai_engine = AIEngine(config)
-        self.forensics = ForensicsEngine(config, self.ai_engine)
-        self.pentester = PenTester(config, self.ai_engine)
-        
-        # Analysis state
-        self.active_scan = None
-        self.active_forensics = None
-        self.active_pentest = None
-        
-        # Results storage
-        self.scan_results = []
-        self.forensic_cases = []
-        self.pentest_results = []
 
     def _setup_logging(self) -> None:
-        """Configure logging"""
+        """Configure logging with reduced verbosity and initialize components.
+        
+        Sets up file and console logging handlers, then initializes
+        scanner, AI engine, forensics, pentester, and detection modules.
+        """
         logging.basicConfig(
-            level=logging.INFO,
+            level=logging.WARNING,  # Changed from INFO to WARNING to reduce verbosity
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
             handlers=[
                 logging.FileHandler('intelprobe.log'),
@@ -93,12 +105,11 @@ class IntelProbeInterface:
         # Initialize scanner with enhanced OS detection
         try:
             self.scanner = EnhancedScanner(self.config)
-            self.logger.info("Enhanced scanner initialized")
+            # Removed verbose logging
         except ImportError:
             try:
                 from .production_scanner import ProductionScanner
                 self.scanner = ProductionScanner(self.config)
-                self.logger.info("Using production scanner")
             except ImportError:
                 self.scanner = None
                 self.logger.error("No scanner available")
@@ -108,7 +119,7 @@ class IntelProbeInterface:
             self.ai_engine = AIEngine(self.config)
         except ImportError:
             self.ai_engine = None
-            self.logger.warning("AI engine not available")
+            # Removed verbose logging
         
         # Initialize forensics and pentester engines
         try:
@@ -125,7 +136,7 @@ class IntelProbeInterface:
             self.detector = AttackDetector(self.config)
         except ImportError:
             self.detector = None
-            self.logger.warning("Attack detector not available")
+            # Removed verbose logging
         
         # Initialize OSINT engine
         try:
@@ -168,13 +179,13 @@ class IntelProbeInterface:
 """
         
         self.console.print(banner, style="bold cyan")
-        self.console.print("🚀 Welcome to IntelProbe - Where Network Forensics Meets AI", style="bold green")
+        self.console.print("Welcome to IntelProbe - Where Network Forensics Meets AI", style="bold green")
         self.console.print("⚡ Ready to analyze, detect, and secure your network", style="yellow")
         self.console.print()
     
     def interactive_mode(self) -> None:
         """Run IntelProbe in interactive mode"""
-        self.console.print("🎯 Starting Interactive Mode", style="bold blue")
+        self.console.print("Starting Interactive Mode", style="bold blue")
         self.console.print("Type 'help' for available commands or 'exit' to quit\\n")
         
         while True:
@@ -209,7 +220,7 @@ class IntelProbeInterface:
             except EOFError:
                 break
             except Exception as e:
-                self.console.print(f"❌ Error: {e}", style="red")
+                self.console.print(f"Error: {e}", style="red")
     
     def _parse_interactive_command(self, command: str) -> None:
         """Parse and execute interactive command"""
@@ -233,10 +244,10 @@ class IntelProbeInterface:
             elif cmd == 'config':
                 self._handle_interactive_config(parts[1:])
             else:
-                self.console.print(f"❌ Unknown command: {cmd}. Type 'help' for available commands.", style="red")
+                self.console.print(f"Unknown command: {cmd}. Type 'help' for available commands.", style="red")
                 
         except Exception as e:
-            self.console.print(f"❌ Command execution failed: {e}", style="red")
+            self.console.print(f"Command execution failed: {e}", style="red")
     
     def _handle_interactive_scan(self, args: List[str]) -> None:
         """Handle interactive scan commands"""
@@ -251,19 +262,19 @@ class IntelProbeInterface:
         
         if scan_type == 'network':
             if len(args) < 2:
-                target = self.console.input("🎯 Enter target network (e.g., 192.168.1.0/24): ")
+                target = self.console.input("Enter target network (e.g., 192.168.1.0/24): ")
             else:
                 target = args[1]
                 
             if not self._validate_network(target):
-                self.console.print("❌ Invalid network format", style="red")
+                self.console.print("Invalid network format", style="red")
                 return
                 
             self._run_network_scan(target)
             
         elif scan_type == 'ports':
             if len(args) < 2:
-                target = self.console.input("🎯 Enter target host/network: ")
+                target = self.console.input("Enter target host/network: ")
             else:
                 target = args[1]
                 
@@ -275,7 +286,7 @@ class IntelProbeInterface:
             self._run_wifi_scan(duration)
             
         else:
-            self.console.print(f"❌ Unknown scan type: {scan_type}", style="red")
+            self.console.print(f"Unknown scan type: {scan_type}", style="red")
     
     def _run_network_scan(self, target: str) -> None:
         """Run network discovery scan"""
@@ -284,11 +295,11 @@ class IntelProbeInterface:
             TextColumn("[progress.description]{task.description}"),
             console=self.console
         ) as progress:
-            task = progress.add_task("🔍 Scanning network...", total=None)
+            task = progress.add_task("Scanning network...", total=None)
             
             try:
                 results = self.scanner.scan_network(target)
-                progress.update(task, description="✅ Network scan completed")
+                progress.update(task, description="Network scan completed")
                 
                 if results:
                     self.session_data['scan_results'].extend(results)
@@ -298,10 +309,10 @@ class IntelProbeInterface:
                     if self.config.get_ai_config()['enabled']:
                         self._run_ai_analysis(results)
                 else:
-                    self.console.print("ℹ️ No hosts discovered", style="yellow")
+                    self.console.print("No hosts discovered", style="yellow")
                     
             except Exception as e:
-                self.console.print(f"❌ Network scan failed: {e}", style="red")
+                self.console.print(f"Network scan failed: {e}", style="red")
     
     def _run_port_scan(self, target: str, port_range: str) -> None:
         """Run port scan"""
@@ -310,7 +321,7 @@ class IntelProbeInterface:
             TextColumn("[progress.description]{task.description}"),
             console=self.console
         ) as progress:
-            task = progress.add_task("🔍 Scanning ports...", total=None)
+            task = progress.add_task("Scanning ports...", total=None)
             
             try:
                 # Run port scan with service detection enabled
@@ -320,7 +331,7 @@ class IntelProbeInterface:
                     service_detection=True,
                     threads=100
                 )
-                progress.update(task, description="✅ Port scan completed")
+                progress.update(task, description="Port scan completed")
                 
                 if results:
                     self._display_port_scan_results(results)
@@ -333,10 +344,10 @@ class IntelProbeInterface:
                         'port_data': results
                     })
                 else:
-                    self.console.print("ℹ️ No open ports found", style="yellow")
+                    self.console.print("No open ports found", style="yellow")
                     
             except Exception as e:
-                self.console.print(f"❌ Port scan failed: {e}", style="red")
+                self.console.print(f"Port scan failed: {e}", style="red")
     
     def _run_wifi_scan(self, duration: int) -> None:
         """Run WiFi scan"""
@@ -345,12 +356,12 @@ class IntelProbeInterface:
             TextColumn("[progress.description]{task.description}"),
             console=self.console
         ) as progress:
-            task = progress.add_task(f"📡 Scanning WiFi networks for {duration}s...", total=None)
+            task = progress.add_task(f"Scanning WiFi networks for {duration}s...", total=None)
             
             try:
                 # Run WiFi scan
                 networks = self.scanner.scan_wifi(duration=duration)
-                progress.update(task, description="✅ WiFi scan completed")
+                progress.update(task, description="WiFi scan completed")
                 
                 if networks:
                     self._display_wifi_results(networks)
@@ -371,10 +382,10 @@ class IntelProbeInterface:
                         ]
                     })
                 else:
-                    self.console.print("ℹ️ No WiFi networks discovered", style="yellow")
+                    self.console.print("No WiFi networks discovered", style="yellow")
                     
             except Exception as e:
-                self.console.print(f"❌ WiFi scan failed: {e}", style="red")
+                self.console.print(f"WiFi scan failed: {e}", style="red")
                 
             finally:
                 # Cleanup and disable monitor mode if needed
@@ -386,7 +397,7 @@ class IntelProbeInterface:
     
     def _display_scan_results(self, results) -> None:
         """Display network scan results in a table"""
-        table = Table(title="🔍 Network Scan Results")
+        table = Table(title="Network Scan Results")
         table.add_column("IP Address", style="cyan")
         table.add_column("MAC Address", style="magenta")
         table.add_column("Hostname", style="green")
@@ -403,15 +414,15 @@ class IntelProbeInterface:
             )
         
         self.console.print(table)
-        self.console.print(f"\\n📊 Discovered {len(results)} active hosts")
+        self.console.print(f"\\nDiscovered {len(results)} active hosts")
     
     def _display_port_scan_results(self, results: Dict[str, Any]) -> None:
         """Display port scan results"""
         for host, data in results.items():
             panel_content = []
-            panel_content.append(f"🎯 Host: {host}")
-            panel_content.append(f"📊 Open Ports: {len(data['open_ports'])}")
-            panel_content.append(f"🔍 Total Scanned: {data['total_scanned']}")
+            panel_content.append(f"Host: {host}")
+            panel_content.append(f"Open Ports: {len(data['open_ports'])}")
+            panel_content.append(f"Total Scanned: {data['total_scanned']}")
             
             if data['open_ports']:
                 panel_content.append("\\n🟢 Open Ports:")
@@ -451,7 +462,7 @@ class IntelProbeInterface:
             TextColumn("[progress.description]{task.description}"),
             console=self.console
         ) as progress:
-            task = progress.add_task("🤖 Running AI analysis...", total=None)
+            task = progress.add_task("Running AI analysis...", total=None)
             
             try:
                 # Convert scan results to dict format for AI
@@ -469,13 +480,13 @@ class IntelProbeInterface:
                 ]
                 
                 analysis = self.ai_engine.analyze_network_scan(results_dict)
-                progress.update(task, description="✅ AI analysis completed")
+                progress.update(task, description="AI analysis completed")
                 
                 self.session_data['ai_analyses'].append(analysis)
                 self._display_ai_analysis(analysis)
                 
             except Exception as e:
-                self.console.print(f"❌ AI analysis failed: {e}", style="red")
+                self.console.print(f"AI analysis failed: {e}", style="red")
     
     def _display_ai_analysis(self, analysis) -> None:
         """Display AI analysis results"""
@@ -507,7 +518,7 @@ class IntelProbeInterface:
         if analysis.analysis:
             panel_content.append(f"\\n🤖 AI Analysis:\\n{analysis.analysis}")
         
-        self.console.print(Panel("\\n".join(panel_content), title="🤖 AI Security Analysis"))
+        self.console.print(Panel("\\n".join(panel_content), title="AI Security Analysis"))
     
     def _handle_interactive_osint(self, args: List[str]) -> None:
         """Handle interactive OSINT commands"""
@@ -522,7 +533,7 @@ class IntelProbeInterface:
         
         if osint_type == 'mac':
             if len(args) < 2:
-                mac = self.console.input("🔍 Enter MAC address: ")
+                mac = self.console.input("Enter MAC address: ")
             else:
                 mac = args[1]
             
@@ -530,26 +541,26 @@ class IntelProbeInterface:
             
         elif osint_type == 'ip':
             if len(args) < 2:
-                ip = self.console.input("🔍 Enter IP address: ")
+                ip = self.console.input("Enter IP address: ")
             else:
                 ip = args[1]
             
             if not validate_ip(ip):
-                self.console.print("❌ Invalid IP address format", style="red")
+                self.console.print("Invalid IP address format", style="red")
                 return
             
             self._run_ip_lookup(ip)
             
         elif osint_type == 'domain':
             if len(args) < 2:
-                domain = self.console.input("🔍 Enter domain name: ")
+                domain = self.console.input("Enter domain name: ")
             else:
                 domain = args[1]
             
             self._run_domain_analysis(domain)
             
         else:
-            self.console.print(f"❌ Unknown OSINT type: {osint_type}", style="red")
+            self.console.print(f"Unknown OSINT type: {osint_type}", style="red")
     
     def _run_mac_lookup(self, mac: str) -> None:
         """Run MAC address lookup"""
@@ -567,7 +578,7 @@ class IntelProbeInterface:
                 self._display_mac_info(vendor_info)
                 
             except Exception as e:
-                self.console.print(f"❌ MAC lookup failed: {e}", style="red")
+                self.console.print(f"MAC lookup failed: {e}", style="red")
     
     def _run_ip_lookup(self, ip: str) -> None:
         """Run IP address intelligence lookup"""
@@ -585,7 +596,7 @@ class IntelProbeInterface:
                 self._display_ip_intel(ip_intel)
                 
             except Exception as e:
-                self.console.print(f"❌ IP lookup failed: {e}", style="red")
+                self.console.print(f"IP lookup failed: {e}", style="red")
     
     def _run_domain_analysis(self, domain: str) -> None:
         """Run domain analysis"""
@@ -603,7 +614,7 @@ class IntelProbeInterface:
                 self._display_domain_intel(domain_intel)
                 
             except Exception as e:
-                self.console.print(f"❌ Domain analysis failed: {e}", style="red")
+                self.console.print(f"Domain analysis failed: {e}", style="red")
     
     def _display_mac_info(self, vendor_info) -> None:
         """Display MAC address vendor information"""
@@ -681,7 +692,7 @@ class IntelProbeInterface:
             
         elif detect_cmd == 'arp':
             if len(args) < 2:
-                network = self.console.input("🎯 Enter network to monitor: ")
+                network = self.console.input("Enter network to monitor: ")
             else:
                 network = args[1]
             
@@ -692,7 +703,7 @@ class IntelProbeInterface:
             self._show_detection_status()
             
         else:
-            self.console.print(f"❌ Unknown detection command: {detect_cmd}", style="red")
+            self.console.print(f"Unknown detection command: {detect_cmd}", style="red")
     
     def _start_detection(self, interface: str = None, duration: int = 0) -> None:
         """Start attack detection monitoring"""
@@ -710,7 +721,7 @@ class IntelProbeInterface:
                 self.console.print("❌ Failed to start detection", style="red")
                 
         except Exception as e:
-            self.console.print(f"❌ Detection startup failed: {e}", style="red")
+            self.console.print(f"Detection startup failed: {e}", style="red")
     
     def _stop_detection(self) -> None:
         """Stop attack detection monitoring"""
@@ -723,7 +734,7 @@ class IntelProbeInterface:
             self._display_detection_summary(summary)
             
         except Exception as e:
-            self.console.print(f"❌ Failed to stop detection: {e}", style="red")
+            self.console.print(f"Failed to stop detection: {e}", style="red")
     
     def _detect_arp_spoofing(self, network: str, duration: int) -> None:
         """Run dedicated ARP spoofing detection"""
@@ -746,7 +757,7 @@ class IntelProbeInterface:
                     self.console.print("✅ No ARP spoofing detected", style="green")
                     
             except Exception as e:
-                self.console.print(f"❌ ARP spoofing detection failed: {e}", style="red")
+                self.console.print(f"ARP spoofing detection failed: {e}", style="red")
     
     def _show_detection_status(self) -> None:
         """Show detection status"""
@@ -794,7 +805,7 @@ class IntelProbeInterface:
             self._generate_ai_report()
             
         else:
-            self.console.print(f"❌ Unknown AI command: {ai_cmd}", style="red")
+            self.console.print(f"Unknown AI command: {ai_cmd}", style="red")
     
     def _run_ai_analysis_interactive(self) -> None:
         """Run AI analysis on current session data"""
@@ -824,7 +835,7 @@ class IntelProbeInterface:
                     self.console.print("ℹ️ No specific threats predicted", style="yellow")
                     
             except Exception as e:
-                self.console.print(f"❌ Threat prediction failed: {e}", style="red")
+                self.console.print(f"Threat prediction failed: {e}", style="red")
     
     def _display_ai_predictions(self, predictions) -> None:
         """Display AI threat predictions"""
@@ -883,7 +894,7 @@ class IntelProbeInterface:
                 self._display_report_summary(report)
                 
             except Exception as e:
-                self.console.print(f"❌ Report generation failed: {e}", style="red")
+                self.console.print(f"Report generation failed: {e}", style="red")
     
     def _display_report_summary(self, report: Dict[str, Any]) -> None:
         """Display report summary"""
@@ -1008,7 +1019,7 @@ class IntelProbeInterface:
             self.console.print(f"✅ Session saved: {session_file}", style="green")
             
         except Exception as e:
-            self.console.print(f"❌ Failed to save session: {e}", style="red")
+            self.console.print(f"Failed to save session: {e}", style="red")
     
     def execute_command(self, args) -> None:
         """Execute command-line arguments"""
@@ -1022,10 +1033,10 @@ class IntelProbeInterface:
             elif args.command == 'ai':
                 self._execute_ai_command(args)
             else:
-                self.console.print(f"❌ Unknown command: {args.command}", style="red")
+                self.console.print(f"Unknown command: {args.command}", style="red")
                 
         except Exception as e:
-            self.console.print(f"❌ Command execution failed: {e}", style="red")
+            self.console.print(f"Command execution failed: {e}", style="red")
             sys.exit(1)
     
     def _execute_scan_command(self, args) -> None:

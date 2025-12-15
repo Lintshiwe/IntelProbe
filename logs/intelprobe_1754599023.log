@@ -1,0 +1,5 @@
+2025-08-07 22:37:03,286 - core.utils - INFO - setup_logging:68 - Logging configured successfully
+2025-08-07 22:37:03,312 - core.scanner - WARNING - __init__:117 - Nmap executable not found in PATH - using fallback scanning methods
+2025-08-07 22:37:03,313 - core.ai_engine - WARNING - __init__:121 - No AI provider configured - AI analysis features disabled
+2025-08-07 22:37:03,336 - core.detection - WARNING - _get_default_interface:220 - netifaces not available, using manual detection
+2025-08-07 22:37:03,337 - core.detection - ERROR - start_monitoring:147 - No suitable network interface found
