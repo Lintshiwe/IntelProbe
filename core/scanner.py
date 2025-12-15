@@ -2,25 +2,62 @@
 Enhanced Scanner Module
 Advanced network scanning with multi-threading and AI integration
 Based on netspionage core with significant enhancements
+
+Author: Lintshiwe Slade (@lintshiwe)
+GitHub: https://github.com/lintshiwe/IntelProbe
+License: MIT License
+Copyright (c) 2025 Lintshiwe Slade
 """
 
-import scapy.all as scapy
-from scapy.layers.inet import IP, ICMP, TCP, UDP
-from scapy.layers.l2 import ARP, Ether
+# Core Python imports
 import socket
 import threading
 import time
-import pandas as pd
 import json
 import ipaddress
 import concurrent.futures
 from typing import List, Dict, Any, Optional, Tuple
 import logging
-import nmap
-import psutil
-import netifaces
 from dataclasses import dataclass
 from pathlib import Path
+
+# Try to import optional dependencies with graceful fallback
+try:
+    import scapy.all as scapy
+    from scapy.layers.inet import IP, ICMP, TCP, UDP
+    from scapy.layers.l2 import ARP, Ether
+    SCAPY_AVAILABLE = True
+except ImportError:
+    SCAPY_AVAILABLE = False
+    print("⚠️ Warning: Scapy not available. Some advanced scanning features will be disabled.")
+
+try:
+    import pandas as pd
+    PANDAS_AVAILABLE = True
+except ImportError:
+    PANDAS_AVAILABLE = False
+    print("⚠️ Warning: Pandas not available. Data analysis features will be limited.")
+
+try:
+    import nmap
+    NMAP_AVAILABLE = True
+except ImportError:
+    NMAP_AVAILABLE = False
+    print("⚠️ Warning: python-nmap not available. Nmap integration will be disabled.")
+
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+    print("⚠️ Warning: psutil not available. System monitoring features will be limited.")
+
+try:
+    import netifaces
+    NETIFACES_AVAILABLE = True
+except ImportError:
+    NETIFACES_AVAILABLE = False
+    print("⚠️ Warning: netifaces not available. Network interface detection will be limited.")
 
 @dataclass
 class ScanResult:
@@ -64,14 +101,22 @@ class EnhancedScanner:
         self.config = config
         self.logger = logging.getLogger(__name__)
         self.results = []
-        self.wifi_networks = pd.DataFrame(columns=["BSSID", "SSID", "Channel", "Encryption", "Signal"])
-        self.wifi_networks.set_index("BSSID", inplace=True)
         
-        # Initialize nmap scanner
-        try:
-            self.nm = nmap.PortScanner()
-        except Exception as e:
-            self.logger.warning(f"Nmap not available: {e}")
+        # Initialize WiFi networks DataFrame if pandas is available
+        if PANDAS_AVAILABLE:
+            self.wifi_networks = pd.DataFrame(columns=["BSSID", "SSID", "Channel", "Encryption", "Signal"])
+            self.wifi_networks.set_index("BSSID", inplace=True)
+        else:
+            self.wifi_networks = []  # Use list as fallback
+        
+        # Initialize nmap scanner if available
+        if NMAP_AVAILABLE:
+            try:
+                self.nm = nmap.PortScanner()
+            except Exception as e:
+                self.logger.warning(f"Nmap not available: {e}")
+                self.nm = None
+        else:
             self.nm = None
     
     def scan_network(self, target: str, threads: int = 50, timeout: int = 5) -> List[ScanResult]:
@@ -147,6 +192,10 @@ class EnhancedScanner:
     
     def _scan_host_arp(self, ip: str, timeout: int) -> Optional[ScanResult]:
         """Scan single host using ARP"""
+        if not SCAPY_AVAILABLE:
+            # Fallback to ping-based detection when scapy is not available
+            return self._scan_host_ping(ip, timeout)
+        
         try:
             start_time = time.time()
             
@@ -170,6 +219,36 @@ class EnhancedScanner:
                 
         except Exception as e:
             self.logger.debug(f"ARP scan error for {ip}: {e}")
+        
+        return None
+    
+    def _scan_host_ping(self, ip: str, timeout: int) -> Optional[ScanResult]:
+        """Fallback ping-based host detection when scapy is not available"""
+        try:
+            import subprocess
+            import platform
+            
+            start_time = time.time()
+            
+            # Determine ping command based on OS
+            system = platform.system().lower()
+            if system == "windows":
+                cmd = ["ping", "-n", "1", "-w", str(timeout * 1000), ip]
+            else:
+                cmd = ["ping", "-c", "1", "-W", str(timeout), ip]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout + 1)
+            response_time = time.time() - start_time
+            
+            if result.returncode == 0:
+                return ScanResult(
+                    ip=ip,
+                    mac="Unknown",  # Can't get MAC without ARP
+                    response_time=response_time
+                )
+                
+        except Exception as e:
+            self.logger.debug(f"Ping scan error for {ip}: {e}")
         
         return None
     
@@ -291,30 +370,57 @@ class EnhancedScanner:
         }
         
         try:
-            # Send ICMP ping using scapy
-            response = scapy.sr1(
-                IP(dst=ip) / ICMP(),
-                timeout=3,
-                verbose=False
-            )
-            
-            if response and hasattr(response, 'ttl'):
-                ttl = response.ttl
+            if SCAPY_AVAILABLE:
+                # Send ICMP ping using scapy
+                response = scapy.sr1(
+                    IP(dst=ip) / ICMP(),
+                    timeout=3,
+                    verbose=False
+                )
                 
-                # Enhanced OS detection based on TTL ranges
-                if ttl <= 32:
-                    return "Windows"
-                elif ttl <= 64 and ttl > 32:
-                    if ttl == 60:
-                        return "macOS"
-                    else:
+                if response and hasattr(response, 'ttl'):
+                    ttl = response.ttl
+                    
+                    # Enhanced OS detection based on TTL ranges
+                    if ttl <= 32:
+                        return "Windows"
+                    elif ttl <= 64 and ttl > 32:
+                        if ttl == 60:
+                            return "macOS"
+                        else:
+                            return "Linux"
+                    elif ttl <= 128 and ttl > 64:
+                        return "Windows"
+                    elif ttl > 128:
                         return "Linux"
-                elif ttl <= 128 and ttl > 64:
-                    return "Windows"
-                elif ttl > 128:
-                    return "Linux"
+                    else:
+                        return f"Unknown (TTL: {ttl})"
+            else:
+                # Fallback: try to get TTL using system ping command
+                import subprocess
+                import platform
+                import re
+                
+                system = platform.system().lower()
+                if system == "windows":
+                    cmd = ["ping", "-n", "1", ip]
                 else:
-                    return f"Unknown (TTL: {ttl})"
+                    cmd = ["ping", "-c", "1", ip]
+                
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+                if result.returncode == 0:
+                    # Try to extract TTL from ping output
+                    ttl_match = re.search(r'ttl=(\d+)', result.stdout.lower())
+                    if ttl_match:
+                        ttl = int(ttl_match.group(1))
+                        if ttl <= 32:
+                            return "Windows"
+                        elif ttl <= 64 and ttl > 32:
+                            return "Linux/macOS"
+                        elif ttl <= 128 and ttl > 64:
+                            return "Windows"
+                        else:
+                            return f"Unknown (TTL: {ttl})"
             
         except Exception as e:
             self.logger.debug(f"TTL-based OS detection failed for {ip}: {e}")
@@ -580,18 +686,50 @@ class EnhancedScanner:
     def _get_default_wifi_interface(self) -> Optional[str]:
         """Get default WiFi interface"""
         try:
-            # Get all network interfaces
-            interfaces = netifaces.interfaces()
-            
-            for iface in interfaces:
-                # Check if interface is wireless
-                if any(keyword in iface.lower() for keyword in ['wlan', 'wifi', 'wireless']):
-                    return iface
-            
-            # Fallback to first available interface
-            if interfaces:
-                return interfaces[0]
+            if NETIFACES_AVAILABLE:
+                # Get all network interfaces using netifaces
+                interfaces = netifaces.interfaces()
                 
+                for iface in interfaces:
+                    # Check if interface is wireless
+                    if any(keyword in iface.lower() for keyword in ['wlan', 'wifi', 'wireless']):
+                        return iface
+                
+                # Fallback to first available interface
+                if interfaces:
+                    return interfaces[0]
+            else:
+                # Fallback method without netifaces - try common interface names
+                import os
+                import subprocess
+                
+                # Try common WiFi interface names
+                common_wifi_interfaces = ['wlan0', 'wlan1', 'wifi0', 'wlp2s0', 'wlp3s0']
+                
+                for iface in common_wifi_interfaces:
+                    try:
+                        # Check if interface exists (Linux/macOS)
+                        if os.path.exists(f'/sys/class/net/{iface}'):
+                            return iface
+                    except:
+                        pass
+                
+                # Try to get interfaces from system commands
+                try:
+                    if os.name == 'posix':  # Linux/macOS
+                        result = subprocess.run(['ip', 'link'], capture_output=True, text=True, timeout=5)
+                        if result.returncode == 0:
+                            for line in result.stdout.split('\n'):
+                                if 'wlan' in line or 'wifi' in line:
+                                    parts = line.split(':')
+                                    if len(parts) > 1:
+                                        return parts[1].strip()
+                except:
+                    pass
+                
+                # Return None if no interface found
+                return None
+                    
         except Exception as e:
             self.logger.debug(f"Error getting WiFi interface: {e}")
         

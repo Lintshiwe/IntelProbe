@@ -1,0 +1,49 @@
+{
+    "ai_config": {
+        "_comment": "AI Provider Configuration - Choose ONE provider",
+        "openai_enabled": false,
+        "openai_api_key": "your-openai-api-key-here",
+        "openai_model": "gpt-3.5-turbo",
+        "gemini_enabled": true,
+        "gemini_api_key": "your-gemini-api-key-here",
+        "gemini_model": "gemini-1.5-flash",
+        "_legacy_config": "Legacy configuration for backward compatibility",
+        "enabled": false,
+        "api_key": "your-api-key-here",
+        "model": "gpt-3.5-turbo",
+        "max_tokens": 1000,
+        "temperature": 0.3
+    },
+    "instructions": {
+        "getting_gemini_api_key": [
+            "1. Go to https://makersuite.google.com/app/apikey",
+            "2. Sign in with your Google account",
+            "3. Click 'Create API Key'",
+            "4. Copy the generated API key",
+            "5. Set gemini_enabled to true and paste your key in gemini_api_key"
+        ],
+        "getting_openai_api_key": [
+            "1. Go to https://platform.openai.com/api-keys",
+            "2. Sign in to your OpenAI account",
+            "3. Click 'Create new secret key'",
+            "4. Copy the generated API key",
+            "5. Set openai_enabled to true and paste your key in openai_api_key"
+        ],
+        "installation": [
+            "For Gemini AI: pip install google-generativeai",
+            "For OpenAI: pip install openai"
+        ],
+        "models": {
+            "gemini_options": [
+                "gemini-1.5-flash (recommended for speed)",
+                "gemini-1.5-pro (better quality, slower)",
+                "gemini-1.0-pro"
+            ],
+            "openai_options": [
+                "gpt-3.5-turbo (recommended for speed)",
+                "gpt-4 (better quality, more expensive)",
+                "gpt-4-turbo-preview"
+            ]
+        }
+    }
+}

@@ -8,14 +8,40 @@ import logging
 import time
 from typing import Dict, List, Any, Optional, Union
 from dataclasses import dataclass
-import openai
 from pathlib import Path
 import threading
 import asyncio
-import numpy as np
-from sklearn.ensemble import IsolationForest
-from sklearn.preprocessing import StandardScaler
 import pickle
+
+# Try to import optional AI dependencies with graceful fallback
+try:
+    import openai
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+    print("⚠️ Warning: OpenAI not available. OpenAI-powered analysis features will be disabled.")
+
+try:
+    import google.generativeai as genai
+    GEMINI_AVAILABLE = True
+except ImportError:
+    GEMINI_AVAILABLE = False
+    print("⚠️ Warning: Google Gemini not available. Gemini-powered analysis features will be disabled.")
+
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+    print("⚠️ Warning: NumPy not available. Advanced mathematical operations will be limited.")
+
+try:
+    from sklearn.ensemble import IsolationForest
+    from sklearn.preprocessing import StandardScaler
+    SKLEARN_AVAILABLE = True
+except ImportError:
+    SKLEARN_AVAILABLE = False
+    print("⚠️ Warning: scikit-learn not available. Machine learning features will be disabled.")
 
 @dataclass
 class ThreatAnalysis:
@@ -54,26 +80,96 @@ class AIEngine:
         self.logger = logging.getLogger(__name__)
         self.ai_config = config.get_ai_config()
         
-        # Initialize OpenAI client if enabled and configured
+        # Initialize AI providers
         self.openai_client = None
-        if self.ai_config['enabled'] and self.ai_config['api_key']:
+        self.gemini_client = None
+        self.ai_provider = None
+        
+        # Try to initialize OpenAI first
+        if OPENAI_AVAILABLE and self.ai_config.get('openai_enabled', False) and self.ai_config.get('openai_api_key'):
             try:
-                openai.api_key = self.ai_config['api_key']
+                openai.api_key = self.ai_config['openai_api_key']
                 self.openai_client = openai
+                self.ai_provider = 'openai'
                 self.logger.info("✅ AI engine initialized with OpenAI")
             except Exception as e:
                 self.logger.warning(f"⚠️ Failed to initialize OpenAI: {e}")
         
-        # Initialize anomaly detection model
-        self.anomaly_detector = IsolationForest(
-            contamination=0.1,
-            random_state=42
-        )
-        self.scaler = StandardScaler()
-        self.is_trained = False
+        # Try to initialize Gemini if OpenAI is not available or configured
+        if not self.ai_provider and GEMINI_AVAILABLE and self.ai_config.get('gemini_enabled', False) and self.ai_config.get('gemini_api_key'):
+            try:
+                genai.configure(api_key=self.ai_config['gemini_api_key'])
+                self.gemini_client = genai.GenerativeModel(
+                    model_name=self.ai_config.get('gemini_model', 'gemini-1.5-flash')
+                )
+                self.ai_provider = 'gemini'
+                self.logger.info("✅ AI engine initialized with Google Gemini")
+            except Exception as e:
+                self.logger.warning(f"⚠️ Failed to initialize Gemini: {e}")
+        
+        # Fallback to legacy configuration format for backward compatibility
+        if not self.ai_provider and self.ai_config.get('enabled', False) and self.ai_config.get('api_key'):
+            if OPENAI_AVAILABLE:
+                try:
+                    openai.api_key = self.ai_config['api_key']
+                    self.openai_client = openai
+                    self.ai_provider = 'openai'
+                    self.logger.info("✅ AI engine initialized with OpenAI (legacy config)")
+                except Exception as e:
+                    self.logger.warning(f"⚠️ Failed to initialize OpenAI (legacy): {e}")
+        
+        if not self.ai_provider:
+            self.logger.info("ℹ️ No AI provider configured - AI analysis features disabled")
+        
+        # Initialize anomaly detection model if scikit-learn is available
+        if SKLEARN_AVAILABLE:
+            self.anomaly_detector = IsolationForest(
+                contamination=0.1,
+                random_state=42
+            )
+            self.scaler = StandardScaler()
+            self.is_trained = False
+        else:
+            self.anomaly_detector = None
+            self.scaler = None
+            self.is_trained = False
+            self.logger.info("ℹ️ scikit-learn not available - anomaly detection disabled")
         
         # Load pre-trained models if available
         self._load_models()
+    
+    def _query_ai(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.3) -> str:
+        """Unified method to query AI providers (OpenAI or Gemini)"""
+        if not self.ai_provider:
+            return "AI analysis unavailable - no AI provider configured."
+        
+        try:
+            if self.ai_provider == 'openai' and self.openai_client:
+                response = self.openai_client.ChatCompletion.create(
+                    model=self.ai_config.get('openai_model', 'gpt-3.5-turbo'),
+                    messages=[
+                        {"role": "system", "content": "You are a cybersecurity expert specializing in network security analysis."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    max_tokens=max_tokens,
+                    temperature=temperature
+                )
+                return response.choices[0].message.content.strip()
+                
+            elif self.ai_provider == 'gemini' and self.gemini_client:
+                response = self.gemini_client.generate_content(
+                    prompt,
+                    generation_config={
+                        'max_output_tokens': max_tokens,
+                        'temperature': temperature,
+                    }
+                )
+                return response.text.strip()
+                
+        except Exception as e:
+            self.logger.warning(f"AI query failed: {e}")
+            
+        return "AI analysis failed due to technical issues."
     
     def _load_models(self) -> None:
         """Load pre-trained ML models"""
@@ -163,10 +259,23 @@ class AIEngine:
                 analysis="Analysis could not be completed due to technical issues"
             )
     
-    def _extract_network_features(self, scan_results: List[Dict[str, Any]]) -> np.ndarray:
+    def _extract_network_features(self, scan_results: List[Dict[str, Any]]) -> Any:
         """Extract numerical features for ML analysis"""
-        features = []
+        if not NUMPY_AVAILABLE:
+            # Return simple list when NumPy is not available
+            features = []
+            for result in scan_results:
+                feature_vector = [
+                    len(result.get('ports', [])),  # Number of open ports
+                    result.get('response_time', 0),  # Response time
+                    1 if result.get('os', '').lower() == 'unknown' else 0,  # Unknown OS flag
+                    len(result.get('services', {})),  # Number of services
+                ]
+                features.append(feature_vector)
+            return features
         
+        # Use NumPy when available
+        features = []
         for result in scan_results:
             feature_vector = [
                 len(result.get('ports', [])),  # Number of open ports
@@ -242,10 +351,20 @@ class AIEngine:
         
         return {'threats': threats, 'recommendations': recommendations}
     
-    def _detect_anomalies(self, features: np.ndarray) -> List[int]:
+    def _detect_anomalies(self, features: Any) -> List[int]:
         """Detect anomalies in network features"""
-        if not self.is_trained or len(features) == 0:
+        if not SKLEARN_AVAILABLE or not self.is_trained or not features:
             return []
+        
+        # Check if features is a list (fallback mode) or numpy array
+        if not NUMPY_AVAILABLE:
+            # Simple threshold-based anomaly detection when scikit-learn/numpy not available
+            anomalies = []
+            for i, feature_vector in enumerate(features):
+                # Simple heuristic: flag hosts with unusually high port counts
+                if len(feature_vector) > 0 and feature_vector[0] > 20:  # More than 20 open ports
+                    anomalies.append(i)
+            return anomalies
         
         try:
             # Normalize features
@@ -264,7 +383,10 @@ class AIEngine:
     
     def _generate_ai_analysis(self, scan_results: List[Dict[str, Any]], 
                             threats: List[str], recommendations: List[str]) -> str:
-        """Generate AI-powered analysis using OpenAI"""
+        """Generate AI-powered analysis using available AI provider"""
+        if not self.ai_provider:
+            return f"AI analysis unavailable. {len(threats)} threats detected requiring attention."
+            
         try:
             # Prepare context for AI
             context = {
@@ -299,17 +421,7 @@ class AIEngine:
             Keep the response concise but comprehensive.
             """
             
-            response = self.openai_client.ChatCompletion.create(
-                model=self.ai_config['model'],
-                messages=[
-                    {"role": "system", "content": "You are a cybersecurity expert specializing in network security analysis."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=self.ai_config['max_tokens'],
-                temperature=self.ai_config['temperature']
-            )
-            
-            return response.choices[0].message.content.strip()
+            return self._query_ai(prompt, max_tokens=800, temperature=0.3)
             
         except Exception as e:
             self.logger.warning(f"AI analysis generation failed: {e}")
@@ -386,6 +498,9 @@ class AIEngine:
     def _generate_executive_summary(self, scan_data: Dict[str, Any], 
                                   analysis: ThreatAnalysis) -> str:
         """Generate executive summary using AI"""
+        if not self.ai_provider:
+            return f"Network assessment completed with {analysis.threat_level} threat level. {len(analysis.threats)} issues require attention."
+            
         try:
             prompt = f"""
             Generate a concise executive summary for the following network security assessment:
@@ -403,17 +518,7 @@ class AIEngine:
             - Recommended next steps
             """
             
-            response = self.openai_client.ChatCompletion.create(
-                model=self.ai_config['model'],
-                messages=[
-                    {"role": "system", "content": "You are a cybersecurity consultant writing for executive leadership."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=200,
-                temperature=0.3
-            )
-            
-            return response.choices[0].message.content.strip()
+            return self._query_ai(prompt, max_tokens=200, temperature=0.3)
             
         except Exception as e:
             self.logger.debug(f"Executive summary generation failed: {e}")
@@ -429,11 +534,24 @@ class AIEngine:
         Returns:
             True if training successful
         """
+        if not SKLEARN_AVAILABLE:
+            self.logger.info("ℹ️ scikit-learn not available - anomaly detection training skipped")
+            return False
+            
         try:
             self.logger.info("🤖 Training anomaly detection model")
             
             # Extract features
             features = self._extract_network_features(training_data)
+            
+            if not NUMPY_AVAILABLE:
+                # Simple validation for list-based features
+                if len(features) < 10:
+                    self.logger.warning("Insufficient training data for anomaly detection")
+                    return False
+                self.is_trained = True
+                self.logger.info(f"✅ Simple anomaly detection enabled with {len(features)} samples")
+                return True
             
             if len(features) < 10:
                 self.logger.warning("Insufficient training data for anomaly detection")
@@ -514,7 +632,7 @@ class AIEngine:
                     ))
             
             # AI-enhanced predictions if available
-            if self.openai_client and len(insights) > 0:
+            if self.ai_provider and len(insights) > 0:
                 try:
                     ai_insights = self._generate_ai_predictions(network_data, insights)
                     insights.extend(ai_insights)
@@ -530,6 +648,9 @@ class AIEngine:
     def _generate_ai_predictions(self, network_data: Dict[str, Any], 
                                base_insights: List[NetworkInsight]) -> List[NetworkInsight]:
         """Generate AI-enhanced threat predictions"""
+        if not self.ai_provider:
+            return []  # Return empty list when no AI provider available
+            
         try:
             context = json.dumps({
                 'network_summary': self._get_scan_summary(network_data.get('scan_results', [])),
@@ -549,18 +670,8 @@ class AIEngine:
             Focus on realistic, actionable predictions based on the network topology and services.
             """
             
-            response = self.openai_client.ChatCompletion.create(
-                model=self.ai_config['model'],
-                messages=[
-                    {"role": "system", "content": "You are a cybersecurity expert predicting future threats."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=500,
-                temperature=0.4
-            )
-            
-            # Parse AI response into insights (simplified parsing)
-            ai_response = response.choices[0].message.content.strip()
+            # Use unified AI query method
+            ai_response = self._query_ai(prompt, max_tokens=500, temperature=0.4)
             
             # Create a general AI insight for now
             return [NetworkInsight(
